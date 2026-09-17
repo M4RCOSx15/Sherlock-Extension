@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "Sherlock Extension",
+  "description": "Extensão para análise de páginas web",
+
+  "action": {
+    "default_title": "Sherlock Code",
+    "default_popup": "popup.html"
+  }
+}
