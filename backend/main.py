@@ -231,6 +231,19 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
     )
 
 
+# ── Frontend estático (Sprint 10) ─────────────────────────────
+# Montado APÓS todas as rotas da API para não conflitar.
+# Acesse: http://localhost:8000  (serve frontend/index.html)
+import pathlib
+
+_FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "frontend"
+
+if _FRONTEND_DIR.exists():
+    from fastapi.staticfiles import StaticFiles as _StaticFiles
+    # html=True → serve index.html automaticamente para "/"
+    app.mount("/", _StaticFiles(directory=str(_FRONTEND_DIR), html=True), name="frontend")
+
+
 # ── Entrypoint direto (opcional) ──────────────────────────────
 # Prefira rodar via: uvicorn backend.main:app --reload
 if __name__ == "__main__":

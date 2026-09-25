@@ -839,225 +839,207 @@ ivTT\TTTvT\viriiTvTvTvvvriiiiii=r=vvvvrvrrr=vrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
   </main>
 
   <script>
-    /* ============================================================
-       RASTRO — máquina de estados + mocks alinhados ao contrato da API
-       Sprint 5: MOCK_SCENARIOS seguem exatamente o schema de /api/scan
-       Todos os dados são FICTÍCIOS. Nenhuma URL é acessada.
-       Na Sprint 10, substituir buildMockResponse() por fetch('/api/scan').
-    ============================================================ */
-    const form           = document.getElementById("scanForm");
-    const input          = document.getElementById("urlInput");
-    const error          = document.getElementById("fieldError");
-    const button         = document.getElementById("submitButton");
-    const buttonLabel    = document.getElementById("buttonLabel");
-    const progressText   = document.getElementById("progressText");
-    const progressState  = document.getElementById("progressState");
-    const resultCard     = document.getElementById("resultCard");
-    const errorCard      = document.getElementById("errorCard");
-    const eyeWindow      = document.getElementById("eyeWindow");
-    const eyeState       = document.getElementById("eyeState");
-    const systemStatus   = document.getElementById("systemStatus");
-    const statusDot      = document.querySelector(".status-dot");
-    const resetButton    = document.getElementById("resetButton");
-    const resetButtonErr = document.getElementById("resetButtonErr");
-    
-    /* --- Validação de URL (frontend) --- */
-    function validDemoUrl(value) {
-      let candidate = value.trim();
-      if (!candidate) return null;
-      if (!/^https?:\/\//i.test(candidate)) candidate = "https://" + candidate;
-      try {
-        const parsed = new URL(candidate);
-        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-        if (!parsed.hostname || (!parsed.hostname.includes(".") && parsed.hostname !== "localhost")) return null;
-        return parsed;
-      } catch (_) { return null; }
-    }
-    
-    /* -------------------------------------------------------
-       MOCK_SCENARIOS — estrutura espelha o contrato /api/scan
-       (docs/api-contract.md)
-       Sprint 10: substituir por resposta real do backend.
-    ------------------------------------------------------- */
-    const MOCK_SCENARIOS = [
-      {
-        status: "ok",
-        score: 72,
-        risk_level: "high",
-        findings: [
-          { id: "fake_scarcity",   type: "Falsa escassez",      severity: "high",   evidence: "\u201cRestam apenas 2 unidades\u201d",             phase: 1, engine: "deterministic" },
-          { id: "confirmshaming",  type: "Indu\u00e7\u00e3o \u00e0 culpa",     severity: "medium", evidence: "\u201cN\u00e3o, prefiro perder a oferta\u201d",      phase: 1, engine: "deterministic" },
-          { id: "fake_urgency",    type: "Urg\u00eancia fabricada",  severity: "medium", evidence: "Contador regressivo sem data real",             phase: 1, engine: "deterministic" },
-          { id: "price_anchoring", type: "Ancoragem de pre\u00e7o", severity: "low",    evidence: "Pre\u00e7o riscado inflacionado artificialmente", phase: 1, engine: "deterministic" }
-        ],
-        meta: { phase: 1, engine: "deterministic", duration_ms: 1240, rules_applied: 12, dom_elements_scanned: 347 }
-      },
-      {
-        status: "ok",
-        score: 41,
-        risk_level: "medium",
-        findings: [
-          { id: "hidden_preselection", type: "Pr\u00e9-sele\u00e7\u00e3o oculta", severity: "medium", evidence: "Newsletter marcada por padr\u00e3o no checkout",        phase: 1, engine: "deterministic" },
-          { id: "roach_motel",         type: "Roach motel",         severity: "high",   evidence: "Cancelar assinatura redireciona para suporte",       phase: 1, engine: "deterministic" }
-        ],
-        meta: { phase: 1, engine: "deterministic", duration_ms: 980, rules_applied: 12, dom_elements_scanned: 211 }
-      },
-      {
-        status: "ok",
-        score: 88,
-        risk_level: "critical",
-        findings: [
-          { id: "fake_scarcity",   type: "Falsa escassez",     severity: "critical", evidence: "\u201cS\u00f3 1 restante!\u201d em produto digital",               phase: 1, engine: "deterministic" },
-          { id: "dark_overlay",    type: "Dark overlay",       severity: "high",     evidence: "Pop-up de sa\u00edda com bot\u00e3o de fechar invis\u00edvel",       phase: 1, engine: "deterministic" },
-          { id: "confirmshaming",  type: "Confirmshaming",     severity: "high",     evidence: "\u201cN\u00e3o, prefiro pagar mais\u201d",                           phase: 1, engine: "deterministic" },
-          { id: "price_anchoring", type: "Pre\u00e7os enganosos", severity: "medium", evidence: "Frete gr\u00e1tis na headline, cobrado no checkout",               phase: 1, engine: "deterministic" },
-          { id: "nagging",         type: "Nagging",            severity: "medium",   evidence: "Pop-up de cadastro exibido a cada 30 s",                           phase: 1, engine: "deterministic" }
-        ],
-        meta: { phase: 1, engine: "deterministic", duration_ms: 1570, rules_applied: 12, dom_elements_scanned: 503 }
-      }
-    ];
-    
-    /* Mock de erro — espelha 503 PAGE_UNREACHABLE do contrato */
-    const MOCK_ERROR = {
-      status: "error",
-      code: "PAGE_UNREACHABLE",
-      message: "N\u00e3o foi poss\u00edvel acessar a p\u00e1gina. Verifique se o endere\u00e7o est\u00e1 correto e acess\u00edvel publicamente.",
-      detail: "timeout ap\u00f3s 15000ms"
-    };
-    
-    /* -------------------------------------------------------
-       Mapa de risk_level para texto exibido no card
-    ------------------------------------------------------- */
-    const RISK_LABELS = {
-      low:      "risco baixo",
-      medium:   "risco moderado",
-      high:     "risco elevado",
-      critical: "risco cr\u00edtico"
-    };
-    
-    /* --- Funções de estado --- */
-    function setState(stateMark, statusText, eyeText, scanning) {
-      progressState.querySelector(".state-mark").textContent = stateMark;
-      systemStatus.textContent = statusText;
-      eyeState.textContent = eyeText;
-      eyeWindow.classList.toggle("is-scanning", scanning);
-      statusDot.classList.toggle("is-scanning", scanning);
-    }
-    
-    function resetUI() {
-      input.disabled = false;
-      button.disabled = false;
-      buttonLabel.textContent = "ANALISAR P\u00c1GINA";
-      resultCard.hidden = true;
-      errorCard.hidden = true;
-      error.textContent = "";
-      input.removeAttribute("aria-invalid");
-      setState("[ OK ]", "SISTEMA PRONTO", "EM ESPERA", false);
-      progressText.textContent = "Aguardando uma URL...";
-      input.focus();
-    }
-    
-    /* Renderiza resposta de sucesso — alinhada ao schema do contrato */
-    function showSuccess(parsed, apiResponse) {
-      const domain = parsed.hostname.replace(/^www\./, "");
-      const nFindings = apiResponse.findings.length;
-      const riskLabel = RISK_LABELS[apiResponse.risk_level] || apiResponse.risk_level;
-    
-      document.getElementById("resultDomain").textContent = domain.toUpperCase();
-      document.getElementById("resultScore").innerHTML = apiResponse.score + "<small>%</small>";
-      document.getElementById("resultLevel").innerHTML =
-        riskLabel + "<br>" + nFindings + " padr\u00e3o" + (nFindings !== 1 ? "s" : "") + " \u00b7 simulado";
-    
-      const list = document.getElementById("findingList");
-      list.innerHTML = apiResponse.findings.map(function (f) {
-        return "<div class=\"finding\"><b>" + f.type + "</b>" + f.evidence + "</div>";
-      }).join("");
-    
-      resultCard.hidden = false;
-    }
-    
-    /* Renderiza erro — alinhada ao schema de erro do contrato */
-    function showError(parsed, apiError) {
-      const domain = parsed ? parsed.hostname : "?";
-      document.getElementById("errorCode").textContent =
-        apiError.code + " \u00b7 " + (apiError.detail || apiError.message) + " \u00b7 " + domain;
-      errorCard.hidden = false;
-    }
-    
-    /* --- Event listeners --- */
-    input.addEventListener("input", function () {
-      error.textContent = "";
-      input.removeAttribute("aria-invalid");
+/* ============================================================
+   RASTRO — Integração ponta a ponta com a API real (Sprint 10)
+   fetch('/api/scan') substitui os mocks JS da Sprint 4-5.
+   O frontend é servido pelo backend em http://localhost:8000
+============================================================ */
+const form           = document.getElementById("scanForm");
+const input          = document.getElementById("urlInput");
+const error          = document.getElementById("fieldError");
+const button         = document.getElementById("submitButton");
+const buttonLabel    = document.getElementById("buttonLabel");
+const progressText   = document.getElementById("progressText");
+const progressState  = document.getElementById("progressState");
+const resultCard     = document.getElementById("resultCard");
+const errorCard      = document.getElementById("errorCard");
+const eyeWindow      = document.getElementById("eyeWindow");
+const eyeState       = document.getElementById("eyeState");
+const systemStatus   = document.getElementById("systemStatus");
+const statusDot      = document.querySelector(".status-dot");
+const resetButton    = document.getElementById("resetButton");
+const resetButtonErr = document.getElementById("resetButtonErr");
+
+/* --- Validação de URL (frontend — duplica a do backend) --- */
+function validDemoUrl(value) {
+  let candidate = value.trim();
+  if (!candidate) return null;
+  if (!/^https?:\/\//i.test(candidate)) candidate = "https://" + candidate;
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    if (!parsed.hostname || (!parsed.hostname.includes(".") && parsed.hostname !== "localhost")) return null;
+    return parsed;
+  } catch (_) { return null; }
+}
+
+/* --- Mapa de códigos de erro da API → mensagens amigáveis --- */
+const ERROR_MESSAGES = {
+  INVALID_URL:          "URL inválida ou com protocolo não suportado.",
+  PAGE_UNREACHABLE:     "Página inacessível. Verifique se o endereço está correto e acessível publicamente.",
+  ACCESS_BLOCKED:       "A página bloqueou o acesso automatizado. O RASTRO não tenta bypassar proteções.",
+  RATE_LIMIT:           "Muitas requisições. Aguarde alguns instantes e tente novamente.",
+  INTERNAL_ERROR:       "Erro interno do servidor. Tente novamente em instantes.",
+  SSRF_BLOCKED_IP:      "URL aponta para um endereço IP privado — não permitido por segurança.",
+  SSRF_BLOCKED_HOSTNAME:"Hostname interno bloqueado por política de segurança.",
+  SSRF_DNS_FAILURE:     "Não foi possível resolver o hostname. Verifique a URL.",
+  BACKEND_OFFLINE:      "Servidor de análise offline. Execute: uvicorn backend.main:app --reload",
+};
+
+/* --- Mapa de risk_level → rótulo exibido --- */
+const RISK_LABELS = {
+  low:      "risco baixo",
+  medium:   "risco moderado",
+  high:     "risco elevado",
+  critical: "risco crítico",
+};
+
+/* --- Funções de estado --- */
+function setState(stateMark, statusText, eyeText, scanning) {
+  progressState.querySelector(".state-mark").textContent = stateMark;
+  systemStatus.textContent = statusText;
+  eyeState.textContent = eyeText;
+  eyeWindow.classList.toggle("is-scanning", scanning);
+  statusDot.classList.toggle("is-scanning", scanning);
+}
+
+function resetUI() {
+  input.disabled = false;
+  button.disabled = false;
+  buttonLabel.textContent = "ANALISAR PÁGINA";
+  resultCard.hidden = true;
+  errorCard.hidden = true;
+  error.textContent = "";
+  input.removeAttribute("aria-invalid");
+  setState("[ OK ]", "SISTEMA PRONTO", "EM ESPERA", false);
+  progressText.textContent = "Aguardando uma URL...";
+  input.focus();
+}
+
+/* --- Renderiza resultado real (schema /api/scan) --- */
+function showSuccess(parsed, apiData) {
+  const nFindings = apiData.findings.length;
+  const riskLabel = RISK_LABELS[apiData.risk_level] || apiData.risk_level;
+  const domCount  = apiData.meta?.dom_elements_scanned ?? "?";
+
+  document.getElementById("resultDomain").textContent = apiData.domain.toUpperCase();
+  document.getElementById("resultScore").innerHTML = apiData.score + "<small>%</small>";
+  document.getElementById("resultLevel").innerHTML =
+    riskLabel + "<br>" + nFindings + " padrão" + (nFindings !== 1 ? "s" : "")
+    + " · " + domCount + " elementos";
+
+  const list = document.getElementById("findingList");
+  if (nFindings === 0) {
+    list.innerHTML = '<div class="finding"><b>Nenhum padrão detectado.</b> A página parece seguir boas práticas de UX.</div>';
+  } else {
+    list.innerHTML = apiData.findings.map(function (f) {
+      return '<div class="finding"><b>' + f.type + '</b>' + f.evidence + '</div>';
+    }).join("");
+  }
+
+  resultCard.hidden = false;
+}
+
+/* --- Renderiza erro da API --- */
+function showError(parsed, apiError) {
+  const domain  = parsed ? parsed.hostname : "?";
+  const code    = apiError?.code || "INTERNAL_ERROR";
+  const message = ERROR_MESSAGES[code] || apiError?.message || "Erro desconhecido.";
+  document.getElementById("errorCode").textContent = code + " · " + message + " · " + domain;
+  errorCard.hidden = false;
+}
+
+/* --- Listeners --- */
+input.addEventListener("input", function () {
+  error.textContent = "";
+  input.removeAttribute("aria-invalid");
+});
+resetButton.addEventListener("click", resetUI);
+resetButtonErr.addEventListener("click", resetUI);
+
+/* --- Submit: fluxo real com fetch('/api/scan') --- */
+form.addEventListener("submit", function (event) {
+  event.preventDefault();
+
+  /* 1. Validação local de URL */
+  const parsed = validDemoUrl(input.value);
+  if (!parsed) {
+    error.textContent = "Digite uma URL válida, por exemplo: https://exemplo.com";
+    input.setAttribute("aria-invalid", "true");
+    input.focus();
+    return;
+  }
+
+  /* 2. Estado: analisando */
+  input.value = parsed.href;
+  error.textContent = "";
+  resultCard.hidden = true;
+  errorCard.hidden = true;
+  input.disabled = true;
+  button.disabled = true;
+  buttonLabel.textContent = "ANALISANDO...";
+  setState("[ .. ]", "VARREDURA EM CURSO", "ANALISANDO", true);
+  progressText.textContent = "Validando URL e segurança...";
+
+  /* Mensagens de progresso durante a espera real */
+  var stageTimers = [
+    window.setTimeout(function () { progressText.textContent = "Acessando a página com Chromium..."; }, 1200),
+    window.setTimeout(function () { progressText.textContent = "Extraindo estrutura do DOM..."; }, 4000),
+    window.setTimeout(function () { progressText.textContent = "Aplicando regras de detecção..."; }, 8000),
+    window.setTimeout(function () { progressText.textContent = "Calculando score de risco..."; }, 12000),
+  ];
+
+  function clearStageTimers() {
+    stageTimers.forEach(function (t) { clearTimeout(t); });
+  }
+
+  function onDone() {
+    clearStageTimers();
+    input.disabled = false;
+    button.disabled = false;
+    buttonLabel.textContent = "ANALISAR NOVAMENTE";
+  }
+
+  /* 3. Chamada real à API */
+  fetch("/api/scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: parsed.href }),
+  })
+  .then(function (response) {
+    return response.json().then(function (data) {
+      return { ok: response.ok, httpStatus: response.status, data: data };
     });
-    
-    resetButton.addEventListener("click", resetUI);
-    resetButtonErr.addEventListener("click", resetUI);
-    
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-    
-      /* Estado 1: validação de URL (frontend) */
-      const parsed = validDemoUrl(input.value);
-      if (!parsed) {
-        error.textContent = "Digite uma URL v\u00e1lida, por exemplo: https://exemplo.com";
-        input.setAttribute("aria-invalid", "true");
-        input.focus();
-        return;
-      }
-    
-      /* Estado 2: analisando */
-      input.value = parsed.href;
-      error.textContent = "";
-      resultCard.hidden = true;
-      errorCard.hidden = true;
-      input.disabled = true;
-      button.disabled = true;
-      buttonLabel.textContent = "ANALISANDO...";
-      setState("[ .. ]", "VARREDURA EM CURSO", "ANALISANDO", true);
-    
-      /* Etapas de progresso — espelham o pipeline real do backend */
-      const stages = [
-        "[SIM] Validando URL e cabe\u00e7alhos...",
-        "[SIM] Extraindo estrutura do DOM...",
-        "[SIM] Aplicando regras determin\u00edsticas...",
-        "[SIM] Calculando score de risco..."
-      ];
-      stages.forEach(function (stage, i) {
-        window.setTimeout(function () { progressText.textContent = stage; }, i * 820);
-      });
-    
-      /* -------------------------------------------------------
-         TODO (Sprint 10): substituir este bloco por:
-         fetch('/api/scan', { method:'POST', headers:{'Content-Type':'application/json'},
-           body: JSON.stringify({ url: parsed.href }) })
-           .then(r => r.json())
-           .then(data => { if (data.status === 'ok') showSuccess(parsed, data); else showError(parsed, data); })
-           .catch(() => showError(parsed, MOCK_ERROR));
-      ------------------------------------------------------- */
-      const willFail = Math.random() < 0.25;
-      const apiResponse = willFail
-        ? MOCK_ERROR
-        : MOCK_SCENARIOS[Math.floor(Math.random() * MOCK_SCENARIOS.length)];
-    
-      window.setTimeout(function () {
-        input.disabled = false;
-        button.disabled = false;
-        buttonLabel.textContent = "ANALISAR NOVAMENTE";
-    
-        if (willFail || apiResponse.status === "error") {
-          /* Estado 3: falha — 503 PAGE_UNREACHABLE simulado */
-          setState("[ !! ]", "ERRO DE ACESSO", "FALHA", false);
-          progressText.textContent = "[SIM] P\u00e1gina inacess\u00edvel \u2014 timeout simulado.";
-          showError(parsed, MOCK_ERROR);
-        } else {
-          /* Estado 4: sucesso com dados fictícios */
-          setState("[ OK ]", "SISTEMA PRONTO", "LEITURA CONCLU\u00cdDA", false);
-          progressText.textContent = "[SIM] An\u00e1lise conclu\u00edda. Nenhum site foi acessado.";
-          showSuccess(parsed, apiResponse);
-        }
-      }, 3500);
-    });
-  </script>
+  })
+  .then(function (result) {
+    onDone();
+    if (result.ok && result.data.status === "ok") {
+      /* Sucesso: análise real */
+      setState("[ OK ]", "SISTEMA PRONTO", "LEITURA CONCLUÍDA", false);
+      var dur = result.data.meta && result.data.meta.duration_ms
+        ? result.data.meta.duration_ms + "ms"
+        : "?ms";
+      progressText.textContent = "Análise concluída em " + dur + ".";
+      showSuccess(parsed, result.data);
+    } else {
+      /* Erro da API (422 / 403 / 503 / 500) */
+      var detail = result.data.detail || result.data || {};
+      var errCode = detail.code || "INTERNAL_ERROR";
+      setState("[ !! ]", "ERRO DE ACESSO", "FALHA", false);
+      progressText.textContent = ERROR_MESSAGES[errCode] || detail.message || "Erro inesperado.";
+      showError(parsed, detail);
+    }
+  })
+  .catch(function (networkErr) {
+    /* Backend offline ou erro de rede */
+    onDone();
+    setState("[ !! ]", "SERVIDOR OFFLINE", "FALHA", false);
+    progressText.textContent = ERROR_MESSAGES["BACKEND_OFFLINE"];
+    showError(parsed, { code: "BACKEND_OFFLINE", message: ERROR_MESSAGES["BACKEND_OFFLINE"] });
+  });
+});
+
+</script>
 </body>
 </html>
 
