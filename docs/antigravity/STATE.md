@@ -3,15 +3,15 @@
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-09-25
-- **Sprint Atual/Concluída**: **Sprint 4 — CONCLUÍDA** (Fluxo de interface com simulação explícita — mocks JS).
+- **Sprint Atual/Concluída**: **Sprint 5 — CONCLUÍDA** (Contrato da API + mocks alinhados ao schema real).
 - **Fase**: Fundação e Protótipo (Sem Backend Funcional).
 
 ## O Que Já Funciona
-- Interface interativa completa: `frontend/index.html` — máquina de estados JS com 4 estados explícitos (idle, analisando, falha simulada ~25%, sucesso com 3 cenários rotativos de findings fictícios). Botão bloqueado durante análise. Botão "↺ NOVA ANÁLISE" / "↺ TENTAR OUTRA URL" para reset.
-- **Sprint 4 — Mocks implementados:** `MOCK_SCENARIOS` com 3 conjuntos de findings, `setState()`, `resetUI()`, `showSuccess()`, `showError()`. Nenhuma URL é acessada. Badge `[ SIMULAÇÃO ]` visível nos cards.
-- **Sprint 3 — Polimentos:** favicon local, meta description, status dot verde (idle) → rosa (scanning), font-sizes corrigidos, `cursor: not-allowed`, `autocomplete="off"`, breakpoints 680px/520px.
-- `.gitignore`, `.env.example`, `README.md`, `backend/.gitkeep` criados (Sprint 1).
-- Documentação completa em `docs/antigravity/`.
+- Interface interativa completa: `frontend/index.html` — máquina de estados JS com mocks alinhados ao contrato `POST /api/scan`. `RISK_LABELS`, `MOCK_ERROR` com `code: PAGE_UNREACHABLE`, `findings[].evidence`, `findings[].risk_level`. TODO comentado para Sprint 10.
+- **Sprint 5 — Contrato definido:** `docs/api-contract.md` cobre request, 5 respostas de erro, schema de `Finding`, thresholds de `risk_level`, catálogo de 8 `id` de findings para Fase 1.
+- **Sprint 4 — Mocks:** 3 cenários rotativos, `setState()`, `resetUI()`, `showSuccess()`, `showError()`. Favicon `favicon.jpg`. Badge `[ SIMULAÇÃO ]`.
+- **Sprint 3 — Polimentos:** status dot verde/rosa, breakpoints, acessibilidade.
+- `.gitignore`, `.env.example`, `README.md`, `backend/.gitkeep` (Sprint 1).
 
 ## O Que Ainda É Simulado / Não Existe
 - Toda a lógica de análise é 100% mockada no frontend (setTimeout, dados estáticos).
