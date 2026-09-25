@@ -1,85 +1,44 @@
-# RASTRO_
+# RASTRO
 
-**Scanner de padrões escuros e copywriting manipulativo em páginas web.**
+O **RASTRO** é uma ferramenta de auditoria de dark patterns web com foco no consumidor e no analista de design ético. Funciona como um SaaS que inspeciona o front-end (DOM/HTML) de páginas públicas em busca de sinais de manipulação de UX (urgência falsa, ancoragem agressiva, confirmshaming, popups intrusivos).
 
-> Investigue sinais de pressão e padrões de manipulação escondidos na experiência de uma página.
+## Fase Atual: MVP V1 🚀
+A **Fase 1** foi completamente desenvolvida. O repositório contém a versão final e local do MVP (Minimum Viable Product).
 
----
+O sistema conta com:
+- **Interface Terminal/Cyber:** Uma interface interativa nativa (sem frameworks JS pesados) em HTML/CSS baunilha, servida pela própria API.
+- **FastAPI Backend:** Servidor Python extremamente rápido que gerencia requisições e isola erros.
+- **Playwright Headless Scraper:** Motor que acessa o site-alvo anonimamente para evitar defesas anti-bot, focado apenas no carregamento do DOM.
+- **SSRF Shield:** Barreira rigorosa que previne varreduras contra sua rede local, roteadores ou serviços sensíveis na nuvem (Proteção contra Server-Side Request Forgery).
+- **Scanner Determinístico:** Motor analítico rodando em cima de `BeautifulSoup4` e expressões regulares para quantificar o abuso de UX e retornar um score.
 
-## O que é o RASTRO?
+## Pré-requisitos
+- **Sistema Operacional:** Funciona em Windows, macOS ou Linux.
+- **Python:** 3.10 ou superior.
 
-RASTRO é um SaaS web de auditoria: você cola uma URL, o sistema analisa a página e devolve um relatório de *dark patterns* — técnicas de design e copywriting que manipulam usuários contra seus próprios interesses (falsa escassez, urgência fabricada, indução à culpa, etc.).
+## Como Executar Localmente
+O sistema foi configurado para resolver conflitos clássicos de I/O de loop do Windows nativamente por meio do `run_server.py`.
 
----
+1. Crie seu ambiente virtual (caso ainda não exista) e ative-o:
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+2. Instale as dependências e o navegador do Playwright:
+   ```powershell
+   pip install -r backend/requirements.txt
+   playwright install chromium
+   ```
+3. Inicie a aplicação de forma segura através do script base:
+   ```powershell
+   python run_server.py
+   ```
+4. Acesse:
+   - **Frontend UI**: [http://localhost:8000](http://localhost:8000)
+   - **API Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## Estado Atual: PRÉ-MVP
-
-O projeto está em desenvolvimento ativo. Veja o status detalhado em [`docs/antigravity/STATE.md`](docs/antigravity/STATE.md).
-
-### O que já existe
-- Interface visual estática (`frontend/index.html`) com estética terminal/hacker
-- Simulação de análise (dados mockados — nenhuma URL é realmente acessada)
-
-### O que ainda não existe
-- Backend real (FastAPI + Playwright)
-- Análise determinística de dark patterns
-- Integração com LLM
-
----
-
-## Como rodar (estado atual)
-
-Sem dependências. Apenas abra o arquivo no navegador:
-
-```bash
-# Opção 1: abrir direto
-start frontend/index.html   # Windows
-open frontend/index.html    # macOS
-
-# Opção 2: servidor local simples (Python)
-python -m http.server 8080
-# Acesse: http://localhost:8080/frontend/
-```
-
----
-
-## Stack Técnico (planejado)
-
-| Camada | Tecnologia |
-|---|---|
-| Frontend | HTML / CSS / JS puro (sem framework) |
-| Backend | Python 3.12+ + FastAPI |
-| Scraping | Playwright |
-| LLM (Fase 2) | Gemini Flash ou Qwen via OpenRouter |
-| Deploy (futuro) | Docker + Oracle Cloud VPS (ARM64) |
+## Regras e Arquitetura do Projeto
+Para detalhes sobre decisões de engenharia, arquitetura e as microsprints planejadas para o RASTRO, consulte a pasta `/docs/antigravity`.
 
 ---
-
-## Setup para desenvolvimento (futuro)
-
-```bash
-# 1. Copiar variáveis de ambiente
-cp .env.example .env
-# Edite o .env com seus valores reais
-
-# 2. Criar ambiente virtual Python (a partir da Sprint 6)
-python -m venv .venv
-source .venv/bin/activate  # Linux/macOS
-.venv\Scripts\activate     # Windows
-
-# 3. Instalar dependências (a partir da Sprint 6)
-pip install -r backend/requirements.txt
-```
-
----
-
-## Documentação do Projeto (para o agente Antigravity)
-
-- [`docs/antigravity/STATE.md`](docs/antigravity/STATE.md) — Estado atual e próximos passos
-- [`docs/antigravity/MICROSPRINTS.md`](docs/antigravity/MICROSPRINTS.md) — Roteiro de desenvolvimento
-- [`docs/antigravity/DECISOES-TECNICAS.md`](docs/antigravity/DECISOES-TECNICAS.md) — Decisões de arquitetura
-- [`docs/antigravity/HANDOFF.md`](docs/antigravity/HANDOFF.md) — Checkpoint de sessão
-
----
-
-*Projeto em desenvolvimento. Artefatos legados de extensão de Chrome (`manifest.json`, `popup.js`, `popup.html`) na raiz podem ser ignorados.*
+*Projeto em evolução constante visando transparência no e-commerce digital.*

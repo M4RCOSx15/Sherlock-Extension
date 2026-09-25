@@ -1,40 +1,35 @@
-# RASTRO - Checkpoint de Handoff
+# RASTRO — Handoff de Sessão
 
-*Quando a janela de contexto de uma sessão do Antigravity atingir um volume muito alto, ou quando o usuário solicitar um checkpoint, o agente usará este modelo para gerar um resumo que será passado para a próxima sessão ou para outro agente.*
+## Resumo Executivo
+O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu oficialmente a sua **Fase 1 (MVP)**, totalizando 10 microsprints de desenvolvimento de sucesso. A plataforma baseia-se numa stack puramente local: frontend Vanilla HTML/CSS/JS (design hacker/terminal) e backend Python (FastAPI + Playwright).
 
----
+Neste ponto, o sistema é capaz de receber uma URL na interface web, despachar um worker (navegador headless) seguro por meio de blindagem SSRF, ler todo o DOM da página alvo, e rodar regras determinísticas para extrair abusos UX (como falsas urgências, checkboxes ocultos, e ancoragens de preço fajutas), devolvendo um score em tempo real.
 
-**Atualizado em:** 2026-09-25 14:36  
-**Repositório e branch:** `https://github.com/M4RCOSx15/Sherlock-Extension.git` · `main`  
-**Sprint atual / última concluída:** Sprint 4 — CONCLUÍDA ✅  
-**Commit:** `993ba96` — feat: Sprints 1-4
+## Progresso Atual (Fase 1 - MVP Concluída)
+- **Frontend V1 Pronto:** Interface visual totalmente funcional, integrada ao backend e lidando nativamente com estados de erro da API. Textos simulados foram permanentemente substituídos pelos dados da API (Sprint 10 concluída).
+- **Backend API & Motor:** 
+  - FastAPI estruturado e servindo requisições (`/api/scan`).
+  - Playwright integrado operando em contexto bloqueado (otimizado).
+  - Segurança contra acesso a redes locais implementada (SSRF guard).
+  - Motor analítico em `analyzer.py` executando pontuação com pesos e regras estruturadas em CSS/Regex.
+- **Ambiente Resolvido:** Problemas crônicos do ecossistema Windows (Playwright vs. Uvicorn Asyncio loops) foram pacificados pela criação do arquivo `run_server.py`.
 
-## 1. Estado Funcional
-- **Como Iniciar:** Abrir `frontend/index.html` no navegador. Sem dependências.
-- **O que funciona:** Interface interativa completa com 4 estados JS (idle → analisando → sucesso/falha), 3 cenários de findings rotativos, botões de reset, status dot colorido, favicon, responsividade.
-- **O que ainda é simulado:** TUDO. Nenhuma URL é acessada. Todos os dados são `MOCK_SCENARIOS` estáticos.
+## Como Rodar Localmente (Obrigatório)
+Abra um terminal PowerShell na raiz do projeto (`dark-plugin`) e rode:
+```powershell
+.venv\Scripts\activate
+python run_server.py
+```
+* **Aplicação Web:** `http://localhost:8000`
+* **Swagger API:** `http://localhost:8000/docs`
 
-## 2. Andamento das Sprints
-- **Aprovadas e concluídas:** Sprint 0, Sprint 1, Sprint 2 (inventário), Sprint 3, Sprint 4
-- **Em andamento:** Nenhuma
-- **Pendentes:** Sprint 5 (contrato da API), Sprint 6 (FastAPI básico), Sprint 7 (anti-SSRF), Sprint 8 (Playwright), Sprint 9 (detecção determinística), Sprint 10 (integração ponta a ponta)
+## Próximos Desafios (Roadmap / Fases 2+)
+Se houver uma próxima sessão ou retomada do desenvolvimento, os vetores de avanço seriam:
+1. **Fase de IA Generativa:** Integrar a API LLM (ex: OpenRouter, OpenAI, Gemini) ao pipeline após o motor determinístico rodar, para injetar análise de semântica e intenção no HTML que as Regex não pegam.
+2. **Camada de Dados:** Atualmente, nada é salvo (Stateless). Para ser um SaaS, é necessário introduzir um banco de dados (SQLite, Postgres) e a infraestrutura de login/autenticação.
+3. **Módulo de Deploy:** Criar scripts/Dockerfiles para viabilizar hospedagem em VPS (Linux).
 
-## 3. Alterações commitadas
-- **Commit `993ba96`** no `main` — 31 arquivos, push realizado ✅
-- Arquivos principais: `frontend/index.html` (35.229 bytes), `.gitignore`, `.env.example`, `README.md`, `backend/.gitkeep`, `docs/antigravity/STATE.md`
-
-## 4. Decisões Recentes e Limites
-- **Favicon:** `frontend/favicon.jpg` (fornecido pelo usuário) + `frontend/default_icon.png` (cópia do original)
-- **Segredos:** Nenhum. `.env` não existe — apenas `.env.example` com placeholders
-- **Variáveis futuras:** `OPENROUTER_API_KEY`, `APP_PORT`, `SCRAPER_TIMEOUT_MS` (todas documentadas em `.env.example`)
-
-## 5. Próxima Tarefa (Para a Nova Sessão)
-**INSTRUÇÃO IMEDIATA PARA O PRÓXIMO AGENTE:**  
-Ao ler este documento, execute SOMENTE a **Sprint 5**:
-
-> **Sprint 5 — Contrato da API, sem scraper**  
-> Escopo: Definir o formato JSON para os requests/responses (`POST /api/scan`). Tratar os cenários de erro e sucesso esperados.  
-> Critério de aceite: Contrato documentado e validado. Frontend preparado para lidar com ele (ainda mockado).
-
-**Atenção:** Não inicie nenhuma outra funcionalidade. Confirme que entendeu este checkpoint, verifique o código em `frontend/index.html` e `docs/antigravity/MICROSPRINTS.md` antes de prosseguir.
-
+## Dicas Rápidas
+- *Windows Asyncio:* Nunca use `uvicorn backend.main:app` direto sem entender o impacto no loop do SO. Confie no `run_server.py`.
+- *Playwright:* Não faça scraping sem acionar o `check_ssrf()`. Sempre isole as sessões do navegador (`BrowserContext`).
+- *Acesso Remoto:* Lembre-se, o backend faz as requests do lugar onde ele está hospedado. Em nuvem, certifique-se que o IP tem liberação para scraping.

@@ -1,33 +1,32 @@
-# RASTRO - Estado Atual do Projeto
+# Estado do Projeto RASTRO
 
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-09-25
-- **Sprint Atual/Concluída**: **Sprint 10 — CONCLUÍDA** (Integração ponta a ponta, frontend usando backend real, e backend servindo o frontend).
-- **Fase**: MVP Concluído. O RASTRO v1 está pronto para uso local.
+- **Sprint Atual/Concluída**: **Todas as Sprints da Fase 1 (0 a 10) concluídas com sucesso**.
+- **Fase**: **MVP V1 Funcional**. O RASTRO v1 está finalizado, com integração ponta a ponta e motor determinístico real operando localmente no Windows.
 
-## O Que Já Funciona
-- Interface interativa completa: `frontend/index.html` — máquina de estados JS com mocks alinhados ao contrato `POST /api/scan`. `RISK_LABELS`, `MOCK_ERROR` com `code: PAGE_UNREACHABLE`, `findings[].evidence`, `findings[].risk_level`. TODO comentado para Sprint 10.
-- **Sprint 5 — Contrato definido:** `docs/api-contract.md` cobre request, 5 respostas de erro, schema de `Finding`, thresholds de `risk_level`, catálogo de 8 `id` de findings para Fase 1.
-- **Sprint 4 — Mocks:** 3 cenários rotativos, `setState()`, `resetUI()`, `showSuccess()`, `showError()`. Favicon `favicon.jpg`. Badge `[ SIMULAÇÃO ]`.
-- **Sprint 3 — Polimentos:** status dot verde/rosa, breakpoints, acessibilidade.
-- `.gitignore`, `.env.example`, `README.md`, `backend/.gitkeep` (Sprint 1).
+## O Que Foi Entregue (MVP Completo)
+1. **Frontend Completo e Integrado**: `frontend/index.html` consumindo a API verdadeira e demonstrando resultados (Score, Risco, Elementos lidos e Findings) dinamicamente com base em dados de varreduras reais.
+2. **Backend API Robusto**: FastAPI (`backend/main.py`) servindo endpoints e páginas estáticas. Inclui configuração dedicada para subprocessos no Windows via `run_server.py`.
+3. **SSRF Guard Integrado**: `backend/security.py` impede scans de IPs locais (127.0.0.1, 10.x, 192.168.x) e bloqueia domínios internos, provendo extrema segurança ao rodar.
+4. **Scraping Real (Playwright)**: `backend/scraper.py` acessa URLs, bloqueia requisições a imagens/mídia pesada para otimizar velocidade, aplica timeout e previne navegação maliciosa.
+5. **Motor Determinístico de Dark Patterns**: `backend/analyzer.py` possui 6 regras de negócio estruturadas (Urgência, Escassez, Confirmshaming, Ancoragem, Pré-seleção e Overlay).
 
-## O Que Ainda É Simulado / Não Existe
-- Toda a lógica de análise é 100% mockada no frontend (setTimeout, dados estáticos).
-- Não existe backend, API, scraper, nem banco de dados.
-- O `manifest.json` e `popup.js` na raiz são de uma extensão de navegador antiga ("Sherlock Extension") e **devem ser ignorados**.
-
-## Problemas Ativos / Bloqueios
-- Nenhum bloqueio crítico.
-
-## Como Rodar o Projeto Atualmente
-*(Abrir o HTML diretamente no navegador — sem dependências)*
-```bash
-start frontend/index.html   # Windows
-open frontend/index.html    # macOS/Linux
+## Instruções Atuais de Uso (Runbook)
+Para rodar a versão final do MVP:
+```powershell
+.venv\Scripts\activate
+python run_server.py
 ```
+- Acesse `http://localhost:8000` para testar o painel visual e analisar URLs reais.
+- Acesse `http://localhost:8000/docs` para visualizar a documentação oficial da API (Swagger UI).
 
-## Próximo Passo
-- Aguardando aprovação do usuário para iniciar a **Sprint 4** (Fluxo de interface com simulação explícita: estados idle/analisando/erro/sucesso via JS, sem backend real).
+## Próximos Passos (Backlog - Fases Futuras)
+- **Integração de LLM (Fase 2)**: Utilizar modelos de IA (ex: OpenRouter) para encontrar padrões subjetivos e contextuais no texto da página, complementando o determinístico.
+- **Banco de Dados & Relatórios**: Criar banco SQL/NoSQL para manter histórico de análises por data e permitir exportação de relatório.
+- **Deploy em Nuvem**: Mover para um ambiente de produção (VPS Linux, Docker, orquestração).
 
+## Restrições ou Problemas Conhecidos Atuais
+- O código original legado da extensão Chrome (arquivos na raiz como manifest e popups) não tem mais serventia, o foco mudou 100% para a plataforma Web SaaS.
+- A máquina Windows local exige a flag `loop="none"` e uso da `WindowsProactorEventLoopPolicy` para que a integração Uvicorn + Playwright funcione adequadamente, garantido pelo `run_server.py`.
