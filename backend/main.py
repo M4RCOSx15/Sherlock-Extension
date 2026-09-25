@@ -1,6 +1,6 @@
 """
 RASTRO — Backend API
-Sprint 6: FastAPI básico com health check e stub de scan.
+Sprint 7: blindagem anti-SSRF integrada ao endpoint de scan.
 O scraping real será adicionado na Sprint 8 (Playwright).
 """
 
@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
+
+from backend.security import SSRFError, check_ssrf
 
 # ── Configuração ─────────────────────────────────────────────
 load_dotenv()
@@ -149,10 +151,23 @@ def scan_url(request: ScanRequest) -> ScanResponse:
     """
     Recebe uma URL e retorna um relatório de dark patterns detectados.
 
-    **Sprint 6 — STUB:** retorna dados fictícios.
-    O Playwright (scraping real) será integrado na Sprint 8.
-    A validação anti-SSRF será adicionada na Sprint 7.
+    **Sprint 7:** validação anti-SSRF ativa — URLs internas são rejeitadas com 422.
+    **Sprint 6 — STUB:** retorna dados fictícios enquanto o Playwright não está integrado.
     """
+    # ── Blindagem anti-SSRF (Sprint 7) ────────────────────────
+    # Deve ser a PRIMEIRA verificação — antes de qualquer I/O de rede.
+    try:
+        check_ssrf(request.url)
+    except SSRFError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "status": "error",
+                "code": exc.code,
+                "message": exc.message,
+                "detail": None,
+            },
+        ) from exc
     parsed  = urlparse(request.url)
     domain  = parsed.netloc.removeprefix("www.")
     now_utc = datetime.now(timezone.utc).isoformat()
