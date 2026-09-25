@@ -3,8 +3,8 @@
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-09-25
-- **Sprint Atual/Concluída**: **Sprint 9 — CONCLUÍDA** (Motor determinístico de dark patterns — 6 regras, score real).
-- **Fase**: MVP Backend Funcional (Scraping + Análise Reais).
+- **Sprint Atual/Concluída**: **Sprint 10 — CONCLUÍDA** (Integração ponta a ponta, frontend usando backend real, e backend servindo o frontend).
+- **Fase**: MVP Concluído. O RASTRO v1 está pronto para uso local.
 
 ## O Que Já Funciona
 - Interface interativa completa: `frontend/index.html` — máquina de estados JS com mocks alinhados ao contrato `POST /api/scan`. `RISK_LABELS`, `MOCK_ERROR` com `code: PAGE_UNREACHABLE`, `findings[].evidence`, `findings[].risk_level`. TODO comentado para Sprint 10.
