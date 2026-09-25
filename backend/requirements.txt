@@ -1,0 +1,14 @@
+# ============================================================
+# RASTRO Backend — Dependências
+# Instalar com: pip install -r backend/requirements.txt
+# ============================================================
+
+# Servidor e framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
+# Variáveis de ambiente
+python-dotenv>=1.0.0
+
+# Validação (incluído com FastAPI, mas explicitado)
+pydantic>=2.7.0
