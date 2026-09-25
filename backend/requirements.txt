@@ -7,6 +7,10 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 
+# Scraping (Sprint 8)
+# Após pip install, execute também: playwright install chromium
+playwright>=1.45.0
+
 # Variáveis de ambiente
 python-dotenv>=1.0.0
 

@@ -1,7 +1,6 @@
 """
 RASTRO — Backend API
-Sprint 7: blindagem anti-SSRF integrada ao endpoint de scan.
-O scraping real será adicionado na Sprint 8 (Playwright).
+Sprint 8: Playwright integrado — scraping real de páginas públicas.
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
+from backend.scraper import ScraperError, fetch_page
 from backend.security import SSRFError, check_ssrf
 
 # ── Configuração ─────────────────────────────────────────────
@@ -147,15 +147,16 @@ def health_check() -> HealthResponse:
         503: {"model": ErrorResponse, "description": "Página inacessível"},
     },
 )
-def scan_url(request: ScanRequest) -> ScanResponse:
+async def scan_url(request: ScanRequest) -> ScanResponse:
     """
     Recebe uma URL e retorna um relatório de dark patterns detectados.
 
-    **Sprint 7:** validação anti-SSRF ativa — URLs internas são rejeitadas com 422.
-    **Sprint 6 — STUB:** retorna dados fictícios enquanto o Playwright não está integrado.
+    **Sprint 8:** scraping real via Playwright/Chromium.
+    **Sprint 7:** validação anti-SSRF ativa — URLs internas rejeitadas com 422.
+    **Sprint 9:** análise determinística de dark patterns (ainda stub).
     """
-    # ── Blindagem anti-SSRF (Sprint 7) ────────────────────────
-    # Deve ser a PRIMEIRA verificação — antes de qualquer I/O de rede.
+    # ── 1. Blindagem anti-SSRF ────────────────────────────────
+    # DEVE ser a primeira verificação — antes de qualquer I/O de rede.
     try:
         check_ssrf(request.url)
     except SSRFError as exc:
@@ -168,22 +169,32 @@ def scan_url(request: ScanRequest) -> ScanResponse:
                 "detail": None,
             },
         ) from exc
-    parsed  = urlparse(request.url)
-    domain  = parsed.netloc.removeprefix("www.")
-    now_utc = datetime.now(timezone.utc).isoformat()
 
-    # ── TODO (Sprint 8): substituir por scraping real via Playwright ──
-    stub_findings: list[Finding] = [
-        Finding(
-            id="stub_finding",
-            type="[STUB] Dado fictício",
-            severity="low",
-            evidence="Scraping não implementado ainda (Sprint 8). "
-                     f"URL recebida: {request.url}",
-            phase=1,
-            engine="stub",
+    # ── 2. Scraping real com Playwright (Sprint 8) ────────────
+    try:
+        page_data = await fetch_page(request.url)
+    except ScraperError as exc:
+        http_status = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if exc.code in ("PAGE_UNREACHABLE", "SCRAPER_INTERNAL")
+            else status.HTTP_403_FORBIDDEN
         )
-    ]
+        raise HTTPException(
+            status_code=http_status,
+            detail={
+                "status": "error",
+                "code": exc.code,
+                "message": exc.message,
+                "detail": None,
+            },
+        ) from exc
+
+    now_utc = datetime.now(timezone.utc).isoformat()
+    domain  = urlparse(page_data.final_url).netloc.removeprefix("www.")
+
+    # ── 3. TODO (Sprint 9): análise determinística de dark patterns ──
+    # Por ora devolve stub — os dados reais da página já estão em page_data.
+    stub_findings: list[Finding] = []
     stub_score = 0
 
     return ScanResponse(
@@ -196,10 +207,10 @@ def scan_url(request: ScanRequest) -> ScanResponse:
         findings=stub_findings,
         meta=ScanMeta(
             phase=1,
-            engine="stub",
-            duration_ms=0,
+            engine="deterministic_stub",
+            duration_ms=page_data.duration_ms,
             rules_applied=0,
-            dom_elements_scanned=0,
+            dom_elements_scanned=page_data.dom_element_count,
         ),
     )
 
