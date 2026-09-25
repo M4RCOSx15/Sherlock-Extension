@@ -1,6 +1,6 @@
 """
 RASTRO — Backend API
-Sprint 8: Playwright integrado — scraping real de páginas públicas.
+Sprint 9: motor determinístico de detecção de dark patterns integrado.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
+from backend.analyzer import ScanFinding, analyze, compute_score, rules_count
 from backend.scraper import ScraperError, fetch_page
 from backend.security import SSRFError, check_ssrf
 
@@ -192,24 +193,39 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
     now_utc = datetime.now(timezone.utc).isoformat()
     domain  = urlparse(page_data.final_url).netloc.removeprefix("www.")
 
-    # ── 3. TODO (Sprint 9): análise determinística de dark patterns ──
-    # Por ora devolve stub — os dados reais da página já estão em page_data.
-    stub_findings: list[Finding] = []
-    stub_score = 0
+    # ── 3. Análise determinística de dark patterns (Sprint 9) ─
+    raw_findings: list[ScanFinding] = analyze(
+        html=page_data.html,
+        text=page_data.text_content,
+    )
+    score = compute_score(raw_findings)
+
+    # Mapeia ScanFinding → Finding (schema do contrato)
+    findings = [
+        Finding(
+            id=f.id,
+            type=f.type,
+            severity=f.severity,
+            evidence=f.evidence,
+            phase=f.phase,
+            engine=f.engine,
+        )
+        for f in raw_findings
+    ]
 
     return ScanResponse(
         status="ok",
         url=request.url,
         domain=domain,
         scanned_at=now_utc,
-        score=stub_score,
-        risk_level=_score_to_risk_level(stub_score),
-        findings=stub_findings,
+        score=score,
+        risk_level=_score_to_risk_level(score),
+        findings=findings,
         meta=ScanMeta(
             phase=1,
-            engine="deterministic_stub",
+            engine="deterministic",
             duration_ms=page_data.duration_ms,
-            rules_applied=0,
+            rules_applied=rules_count(),
             dom_elements_scanned=page_data.dom_element_count,
         ),
     )
