@@ -3,7 +3,7 @@
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-09-25
-- **Sprint Atual/Concluída**: **Sprint 6 — CONCLUÍDA** (FastAPI backend mínimo — health check + stub de scan).
+- **Sprint Atual/Concluída**: **Sprint 7 — CONCLUÍDA** (Blindagem anti-SSRF integrada ao backend).
 - **Fase**: Fundação e Protótipo (Sem Backend Funcional).
 
 ## O Que Já Funciona
