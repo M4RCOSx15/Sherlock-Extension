@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "fastapi": {
+      "source": "fastapi/fastapi",
+      "sourceType": "github",
+      "skillPath": "fastapi/.agents/skills/fastapi/SKILL.md",
+      "computedHash": "187b2e06c41cdb6c6beeab15e6db4aeb1bf62f57735974646ad5646af8aacc66"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "106acf230014cbb43ca34e6410371321b56ca742f9ee0442e8ec05bf02eb0384"
+    },
+    "pm-product-spec": {
+      "source": "Uxcel-Lab/product-skills",
+      "sourceType": "github",
+      "skillPath": "pm/deliverables/product-spec/SKILL.md",
+      "computedHash": "6fa7cd960a257cb861291a8c5e2b26f1f6ca7f418cae1a2b6765a31ce172e9d7"
+    },
+    "ux-dark-patterns-audit": {
+      "source": "Uxcel-Lab/product-skills",
+      "sourceType": "github",
+      "skillPath": "ux/audits/dark-patterns/SKILL.md",
+      "computedHash": "081ac22e10889d37c49fb6627a50e1c62974ca2008589a0ab1dd2866d4dd227b"
+    },
+    "ux-heuristics-audit": {
+      "source": "Uxcel-Lab/product-skills",
+      "sourceType": "github",
+      "skillPath": "ux/audits/heuristics/SKILL.md",
+      "computedHash": "e659825639ccbfacd5d3858cd5c5511477e19abcd1a140b02e97834997ad7c49"
+    }
+  }
+}

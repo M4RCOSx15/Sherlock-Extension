@@ -1,0 +1,1012 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a11">
+  <title>Rastro — scanner de padrões</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="default_icon.png">
+  <meta name="description" content="RASTRO — scanner de dark patterns e copywriting manipulativo em páginas web. Investigue sinais de pressão e manipulação na experiência de qualquer site.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080910;
+      --panel: #0c0d15;
+      --panel-soft: #10111b;
+      --line: #514d60;
+      --line-soft: rgba(177, 165, 208, .19);
+      --ink: #e8e4ee;
+      --muted: #a19bae;
+      --quiet: #6f6a7b;
+      --violet: #c6b6e8;
+      --rose: #ea6079;
+      --rose-soft: #a8465d;
+      --green: #b9d8ca;
+      --font: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 1px 0 28px;
+      background:
+        radial-gradient(ellipse at 51% 39%, rgba(73, 51, 92, .18), transparent 47%),
+        #080910;
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+
+    .page-shell {
+      width: min(1110px, calc(100% - 44px));
+      margin: clamp(24px, 6vh, 62px) auto 0;
+    }
+
+    .terminal {
+      position: relative;
+      padding: clamp(23px, 4vw, 43px);
+      border: 1px dashed var(--line);
+      background: linear-gradient(145deg, rgba(17, 17, 27, .98), rgba(9, 10, 16, .98));
+      box-shadow: 0 22px 80px rgba(0, 0, 0, .36), inset 0 0 50px rgba(81, 63, 107, .035);
+    }
+
+    .terminal::before,
+    .terminal::after {
+      content: "";
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border: 1px solid var(--rose-soft);
+      background: var(--bg);
+    }
+
+    .terminal::before { top: -4px; left: 20px; }
+    .terminal::after { right: 20px; bottom: -4px; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 21px;
+      border-bottom: 1px dashed var(--line-soft);
+    }
+
+    .identity {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 37px;
+      height: 37px;
+      flex: 0 0 auto;
+      border: 1px solid var(--rose-soft);
+      color: var(--rose);
+      font-size: 13px;
+      letter-spacing: -.13em;
+      text-indent: -.13em;
+    }
+
+    .wordmark {
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: .13em;
+    }
+
+    .wordmark span { color: var(--rose); }
+
+    .descriptor {
+      margin-top: 4px;
+      color: var(--quiet);
+      font-size: 11px;
+      letter-spacing: .15em;
+    }
+
+    .system-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 11px;
+      border: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .09em;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px rgba(185, 216, 202, .55);
+      transition: background .3s, box-shadow .3s;
+    }
+
+    .status-dot.is-scanning {
+      background: var(--rose);
+      box-shadow: 0 0 10px rgba(234, 96, 121, .72);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+      align-items: center;
+      gap: clamp(32px, 6vw, 76px);
+      padding: clamp(31px, 5vw, 52px) 0 30px;
+    }
+
+    .section-index,
+    .visual-index {
+      margin: 0;
+      color: var(--rose);
+      font-size: 10px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .section-index span { color: var(--quiet); }
+
+    h1 {
+      max-width: 500px;
+      margin: 18px 0 13px;
+      font-size: clamp(25px, 3.1vw, 39px);
+      line-height: 1.23;
+      letter-spacing: -.065em;
+      font-weight: 600;
+    }
+
+    h1 em {
+      color: var(--violet);
+      font-style: normal;
+    }
+
+    .intro {
+      max-width: 440px;
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .terminal-prompt {
+      margin: 0 0 9px;
+      color: var(--green);
+      font-size: 11px;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: .1em;
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 45px;
+      padding: 0 12px;
+      border: 1px solid var(--rose-soft);
+      background: #0b0c13;
+      box-shadow: 0 0 14px rgba(234, 96, 121, .09);
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .input-wrap:focus-within {
+      border-color: var(--rose);
+      box-shadow: 0 0 18px rgba(234, 96, 121, .2);
+    }
+
+    .input-caret {
+      color: var(--rose);
+      font-size: 14px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 12px;
+    }
+
+    input::placeholder { color: #625e6b; opacity: 1; }
+    input:disabled { opacity: .56; }
+
+    .field-error {
+      min-height: 17px;
+      margin: 6px 0 0;
+      color: #ff8494;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+    }
+
+    .submit-button {
+      -moz-appearance: none;
+      -webkit-appearance: none;
+      appearance: none;
+      position: relative;
+      display: block;
+      width: 100%;
+      min-height: 56px;
+      margin: 1px 0 0;
+      padding: 8px;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      transition: color .15s ease;
+    }
+
+    .submit-button::before,
+    .submit-button::after {
+      content: "";
+      display: block;
+      position: absolute;
+      right: 0;
+      left: 0;
+      height: calc(50% - 5px);
+      border: 1px solid var(--line);
+      transition: all .15s ease;
+    }
+
+    .submit-button::before { top: 0; border-bottom-width: 0; }
+    .submit-button::after { bottom: 0; border-top-width: 0; }
+
+    .submit-button:active,
+    .submit-button:focus { outline: none; }
+
+    .submit-button:focus-visible {
+      outline: 1px solid var(--violet);
+      outline-offset: 4px;
+    }
+
+    .submit-button:active::before,
+    .submit-button:active::after { right: 3px; left: 3px; }
+    .submit-button:active::before { top: 3px; }
+    .submit-button:active::after { bottom: 3px; }
+
+    .button-lg {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 40px;
+      padding: 10px 20px;
+      overflow: hidden;
+      background: #0f1923;
+      color: #fff;
+      box-shadow: inset 0 0 0 1px transparent;
+    }
+
+    .button-lg::before {
+      content: "";
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 2px;
+      background: #0f1923;
+    }
+
+    .button-lg::after {
+      content: "";
+      display: block;
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 4px;
+      height: 4px;
+      background: #0f1923;
+      transition: background-color .2s ease;
+    }
+
+    .button-sl {
+      display: block;
+      position: absolute;
+      z-index: 0;
+      top: 0;
+      bottom: -1px;
+      left: -8px;
+      width: 0;
+      background: var(--rose);
+      transform: skew(-15deg);
+      transition: width .2s ease;
+    }
+
+    .button-text {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      transition: color .2s ease;
+    }
+
+    .submit-button:hover:not(:disabled) .button-sl { width: calc(100% + 15px); }
+    .submit-button:hover:not(:disabled) .button-text { color: #0f1923; }
+    .submit-button:hover:not(:disabled) .button-lg::after { background: #fff; }
+    .submit-button:disabled { cursor: not-allowed; opacity: .64; }
+
+    .demo-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 11px 0 0;
+      color: var(--quiet);
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .demo-note strong {
+      flex: 0 0 auto;
+      color: var(--violet);
+      font-family: var(--font);
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 23px;
+      padding-top: 15px;
+      border-top: 1px dashed var(--line-soft);
+    }
+
+    .history-title {
+      color: var(--ink);
+      font-size: 10px;
+      letter-spacing: .04em;
+    }
+
+    .history-soon {
+      color: var(--quiet);
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      text-align: right;
+    }
+
+    .progress-state {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 18px;
+      margin-top: 12px;
+      color: var(--green);
+      font-size: 9px;
+      letter-spacing: .055em;
+    }
+
+    .progress-state .state-mark { color: var(--rose); }
+
+    .result-card {
+      margin-top: 17px;
+      padding: 15px;
+      border: 1px solid rgba(234, 96, 121, .45);
+      background: rgba(38, 20, 32, .46);
+      animation: reveal .34s ease-out both;
+    }
+
+    .result-card[hidden] { display: none; }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--rose);
+      font-size: 9px;
+      letter-spacing: .08em;
+    }
+
+    .result-score-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 9px 0;
+    }
+
+    .result-score {
+      color: #f1ddea;
+      font-size: 35px;
+      font-weight: 600;
+      letter-spacing: -.09em;
+      line-height: 1;
+    }
+
+    .result-score small {
+      color: var(--rose);
+      font-size: 17px;
+    }
+
+    .result-level {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .result-explain {
+      margin: 0 0 11px;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .finding-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .finding {
+      padding: 8px;
+      border: 1px solid var(--line-soft);
+      color: var(--ink);
+      font-size: 9px;
+      line-height: 1.4;
+    }
+
+    .finding b {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--violet);
+      font-weight: 500;
+    }
+
+    .visual-panel { min-width: 0; }
+
+    .visual-head,
+    .visual-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: .08em;
+    }
+
+    .visual-head {
+      justify-content: flex-end;
+      margin-bottom: 10px;
+      color: var(--violet);
+    }
+
+    .eye-state { color: var(--rose); }
+
+    .eye-window {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 400px;
+      overflow: hidden;
+      border: 1px solid rgba(174, 157, 209, .3);
+      background:
+        radial-gradient(ellipse at 50% 52%, rgba(91, 64, 119, .19), transparent 67%),
+        repeating-linear-gradient(0deg, transparent 0 4px, rgba(198, 182, 232, .025) 5px);
+      isolation: isolate;
+    }
+
+    .eye-window::before {
+      content: "";
+      position: absolute;
+      inset: 10px;
+      border: 1px dashed rgba(174, 157, 209, .15);
+      pointer-events: none;
+    }
+
+    .eye-art {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      padding: 11px 5px;
+      max-width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      color: var(--violet);
+      font-family: var(--font);
+      font-size: clamp(5.2px, .62vw, 6.4px);
+      font-weight: 500;
+      line-height: 1.03;
+      letter-spacing: 0;
+      white-space: pre;
+      text-shadow: 0 0 8px rgba(177, 142, 217, .13);
+      transition: filter .25s;
+    }
+
+
+    .scanline {
+      position: absolute;
+      z-index: 2;
+      inset: -40% 0;
+      pointer-events: none;
+      opacity: .15;
+      background: linear-gradient(to bottom, transparent 46%, rgba(244, 195, 222, .3) 50%, transparent 54%);
+      transform: translateY(-45%);
+    }
+
+    .visual-foot {
+      margin-top: 10px;
+      color: var(--quiet);
+      font-size: 8px;
+    }
+
+    .eye-caption {
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-style: italic;
+      text-align: center;
+    }
+
+    .eye-caption span { color: var(--rose); }
+
+    .is-scanning .eye-art {
+      filter: brightness(1.35);
+      animation: flicker .48s steps(2, end) infinite;
+    }
+
+    .is-scanning .scanline {
+      opacity: .5;
+      animation: sweep 1.25s linear infinite;
+    }
+
+    .is-scanning .eye-state {
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .76; }
+    }
+
+    @keyframes sweep {
+      from { transform: translateY(-45%); }
+      to { transform: translateY(45%); }
+    }
+
+    @keyframes pulse {
+      50% { opacity: .48; }
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Sprint 4 — estados de simulação */
+    .error-card {
+      margin-top: 17px;
+      padding: 14px 15px;
+      border: 1px solid rgba(234, 96, 121, .55);
+      background: rgba(38, 10, 18, .6);
+      animation: reveal .3s ease-out both;
+    }
+
+    .error-card[hidden] { display: none; }
+
+    .error-head {
+      color: var(--rose);
+      font-size: 9px;
+      letter-spacing: .1em;
+      margin-bottom: 7px;
+    }
+
+    .error-body {
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .error-code {
+      margin-top: 8px;
+      color: var(--quiet);
+      font-size: 9px;
+      letter-spacing: .08em;
+    }
+
+    .reset-button {
+      margin-top: 12px;
+      padding: 6px 13px;
+      border: 1px solid var(--line-soft);
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 9px;
+      letter-spacing: .1em;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+
+    .reset-button:hover { color: var(--ink); border-color: var(--line); }
+    .reset-button:focus-visible { outline: 1px solid var(--violet); outline-offset: 3px; }
+
+    .sim-badge {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 2px 6px;
+      border: 1px solid rgba(198, 182, 232, .3);
+      color: var(--violet);
+      font-size: 8px;
+      letter-spacing: .12em;
+    }
+
+    @media (max-width: 850px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+        gap: 34px;
+      }
+
+      .intro { max-width: 590px; }
+      .visual-panel { width: min(100%, 570px); justify-self: center; }
+      .eye-art { font-size: clamp(5px, .76vw, 6.2px); }
+    }
+
+    @media (max-width: 680px) {
+      .eye-window { min-height: 360px; }
+    }
+
+    @media (max-width: 520px) {
+      .page-shell { width: calc(100% - 24px); margin-top: 13px; }
+      .terminal { padding: 19px 16px 16px; }
+      .topbar { align-items: flex-start; }
+      .wordmark { font-size: 14px; }
+      .descriptor { font-size: 10px; }
+      .system-status { display: none; }
+      .main-grid { padding: 31px 0 22px; gap: 28px; }
+      h1 { font-size: clamp(25px, 8vw, 34px); }
+      .eye-window { min-height: 310px; }
+      .eye-art { font-size: clamp(5px, 1.05vw, 5.5px); }
+      .history-row { align-items: flex-start; }
+      .finding-list { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <section class="terminal" aria-labelledby="page-title">
+      <header class="topbar">
+        <div class="identity">
+          <div class="brand-mark" aria-hidden="true">r.</div>
+          <div>
+            <div class="wordmark">RASTRO<span>_</span></div>
+            <div class="descriptor">SCANNER DE PADRÕES ESCUROS</div>
+          </div>
+        </div>
+        <div class="system-status"><span class="status-dot"></span><span id="systemStatus">SISTEMA PRONTO</span></div>
+      </header>
+
+      <div class="main-grid">
+        <section class="scanner-copy" aria-label="Painel de análise">
+          <h1 id="page-title">LEIA ENTRE<br><em>AS LINHAS.</em></h1>
+          <p class="intro">Investigue sinais de pressão e padrões de manipulação escondidos na experiência de uma página.</p>
+
+          <form id="scanForm" novalidate>
+            <p class="terminal-prompt">operador@rastro:~$ scan --url</p>
+            <label class="field-label" for="urlInput">URL PARA INSPEÇÃO</label>
+            <div class="input-wrap">
+              <span class="input-caret" aria-hidden="true">&gt;</span>
+              <input id="urlInput" name="url" type="text" inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://exemplo.com" aria-describedby="fieldError demoNote">
+            </div>
+            <p class="field-error" id="fieldError" aria-live="polite"></p>
+            <button class="submit-button" id="submitButton" type="submit">
+              <span class="button-lg">
+                <span class="button-sl" aria-hidden="true"></span>
+                <span class="button-text"><span id="buttonLabel">ANALISAR PÁGINA</span><span aria-hidden="true">↗</span></span>
+              </span>
+            </button>
+            <p class="demo-note" id="demoNote" role="note"><strong>[ DEMO ]</strong><span>Nenhum site será acessado nesta prévia.</span></p>
+            <div class="progress-state" id="progressState" aria-live="polite"><span class="state-mark">[ OK ]</span><span id="progressText">Aguardando uma URL...</span></div>
+          </form>
+
+          <div class="result-card" id="resultCard" hidden aria-live="polite">
+            <span class="sim-badge">[ SIMULAÇÃO ]</span>
+            <div class="result-head"><span id="resultDomain">RESULTADO FICTÍCIO</span><span>ANÁLISE SIMULADA</span></div>
+            <div class="result-score-row"><div class="result-score" id="resultScore">72<small>%</small></div><div class="result-level" id="resultLevel">risco contextual<br>elevado · simulado</div></div>
+            <p class="result-explain">Score ilustrativo. Numa análise real, o motor determinístico e o LLM avaliam o DOM completo da página.</p>
+            <div class="finding-list" id="findingList">
+              <div class="finding"><b>Falsa escassez</b>"Restam apenas 2 unidades"</div>
+              <div class="finding"><b>Indução à culpa</b>"Não, prefiro perder a oferta"</div>
+            </div>
+            <button class="reset-button" id="resetButton" type="button">↺ NOVA ANÁLISE</button>
+          </div>
+
+          <div class="error-card" id="errorCard" hidden aria-live="polite">
+            <span class="sim-badge">[ SIMULAÇÃO ]</span>
+            <div class="error-head">[ ERRO ] — PÁGINA INACESSÍVEL</div>
+            <p class="error-body">Não foi possível acessar a URL fornecida. Verifique se o endereço está correto e acessível publicamente.</p>
+            <div class="error-code" id="errorCode">SIM_ERR · timeout simulado · nenhum site foi acessado</div>
+            <button class="reset-button" id="resetButtonErr" type="button">↺ TENTAR OUTRA URL</button>
+          </div>
+          <div class="history-row">
+            <span class="history-title">RELATÓRIOS HISTÓRICOS</span>
+            <span class="history-soon">Em breve: login e download</span>
+          </div>
+        </section>
+
+        <section class="visual-panel" aria-label="Arte visual do scanner">
+          <div class="visual-head">
+            <span class="eye-state" id="eyeState">EM ESPERA</span>
+          </div>
+          <div class="eye-window" id="eyeWindow">
+            <pre class="eye-art" role="img" aria-label="Olho digital desenhado com caracteres ASCII">
+  .._~r~'.  ......''''::!_~!:..':'.:**!**!!*_!!***r**~*=r!!*!!*r_::\\:..:'... .':      .        
+  ._\r=!'   .:_:::~_\*\\rrrr_'.__**=rrvvvrvr\vTrTiTvvrTr=r=Tvvir~*r!_''.::''. .:~        ..  .  
+  'rrr\'.  .:!\***\==rrr=\rr:'::\rrrr=rrrrr\Tvv=v\rrr==rrrTiv=\:!v:.'r!_...'':_!!   .    ..  .  
+ '~=\=!_' ':r=\*_\===r==r==r:'__==r=rrrrrrrrTrrrrrvrr=vT=rrT=!~\_':r\v!'.  ...=!: '::.   ..    .
+ '~=r*!__ :!v!\=rr=rr=r=rrrr_'!_!v==r=rrrrrrrrrrrrrr=irrrTv!~__:_\vT\T!' ... .\'. :__.    .     
+ .:r!:*:'.!**\rr==rrrr==r==r_'~*\r=====r==rrrrrrrrrr=rvvT*__~!TrrTrr\T=: .. ..'.. .'_.          
+'.'\__r..'!\\=rrr=r=rrr=r==r_'~**=r=vrrrrr=rrvr=vTTTTvT=!~*!r=rrrrrr\1\_ ......'. ..!.          
+~:::~!*'.'!rrrrrrrrrrrrrrrrr~'\!~\\\!\*~!*\\rrr\\~____=~*\\rrrrrrrrrr=__ .....':: ..~.          
+T:.:*\\_::*rrrrrr=rrrrrrrrrr~:\**=~~*!__''''''''''._!***v=rrrrrrrrrrrr=*.... .\~_ ...           
+1\:'*vr!~_*rrrrrrrrrrr==rr=r~:==\*=rr=\==\!!_:~_*=*rTvrrrrrrrrrrrrrrrvr='.....*__'.''..         
+v\~':\rr!~\vrrrrrrrr=vvvr\rv~:!~\~~\\rrvr=r=r=\=\=\r\==vvrrrrrrrrrrrr=ri:....._'''_~...  ...    
+v!\!!=rr=!!vrrrrr=r=\\*!~:~__'__:'.'::::~!::!rr*r====\\!r=rvrrrrrrrrrTr*.. . .::_:*!...  ..     
+v\=Tvvi=ir=rrrrr\\!___::~!:~_:::::::*!*!::::.':'_!*\\=r==\*r=rrrrrr=vr:. .. ..'_*_\\'..         
+r\TTrrrvrTi\r!~*_:______:::_::_:~*~!r\=r=!r~:=:':::_:_~!=rrr=rrrr\vr\'':!'...  '~:=='..         
+v\1r\iTvirr\~_:__~!!~r~~:~_!\*:*vv_:!!!*~~r'':~!_!*=~_:':_~*rv1rrrr_'.*rr~....'''~=*':: ..     .
+r=ii=vvrvv!___~~:*=\~!_~__~~\1=~_r'..'''.     ...__~!__*\:::_:!i\r'.'rirr!:'.._'.__!*_:.  ..    
+1=vi=vvrr*~:~_~!__~!*\*vr=!!:'!:.               .   ..._!!:___':..'~irr\v\_!..!:'''_T=:   ...   
+T=TTTi\!=~_~!!!~:~__~\*v\!__' .     ..'''''':'.'..      ..'_=_' .'_~Trrrr*~*:::!:.__T: .       .
+ivTiv*\=*~!***\!::~~~::'...   ...':~!_~!_:''::.'_~__''.    .'.':!*:':~*=rr\*:~.*r.*v_.          
+i=TiT*\~~~_!r!~!!!**_~~_.  ..:_*vv\r_:..        .':=\!___     .'~**__'':\r=\!*'_~':_   '.       
+T\iTr\=~*!~_~~*rv\=*~:.....'~*v*i!'.      '''.      :*T*' '''.   .:_!=__'_*===::''.. ::r' .     
+iTrTTvr=\!~*\*r!~_~::.  .:~rTiT_:   .   :\i!:..:!:: .._::!rvr~~..   .!*=!:'_!=_:_:. .!\\. .     
+iv=r\ivrvvrrirv*\!:'.'::\riiiT:.   .  '=T1~'.'~**''...'=TTrivr\r*_   .'~r*!'::_:: .._\\!.       
+1TrivvvvTTvTiTr=**''':*riiII!' ..... _!oT!'_!*_'.  ''''rIi==**vriT\:.   ':**_''''..'vv*..       
+TTii\TTrrTrrTrir::.':!v111T~'.''...._1Ir!:*T11r~:!!~'':=1oAAi\i=*=v**_'  .:*:'.'.:':r\:  . ..   
+1=TiT=vivrvrvvvr:':_*ivi1v!.'.'...'~oIi_:=oA1~_:!=\:':vA8gggR1i=v=Tvvv=_.  ..'..'_::r:'... '''  
+T=rivvvTrrvrvI!_:'!vii1IT_'''':..:1bAr~~rToT*_::*:':*rU%gggggATi=r=rv=r=*:.....:::..:..:.. :::. 
+1TvvrvviTirTi\!:::riiiiT='''.''.':IAKI1ooIr!!!_r'~*oT1i8ggggg$b1=1v\Tr=\r'     ':_::...'. .:~_::
+1vrvrrrrvTT=T*~:~\iTiTIv~'''.'....''~1ovvvT=iAv=*io1TiU%gggggQUIrvTr==r\'..:''  .::' ':.   :::_!
+IrvTivTrTrr*~::_rv11i11v''''''.....'.':_=1r1AUr\i1KiiK%ggggggo===\r==r~: '~=r*'   .. ..  .'''~_:
+ivvrrTvTr\!:''._=TiTTIv\'.':'.:''....   ._Tb8i1I1Ioi1Aggggg$Ir\rr=\\*\'.~~\!=*\'.   :.  .:!.._::
+i=rvrTvv*~~_~::\iITTiK=v..'... ....  ..   '\ioUUKI1IURggggAi\r=rr\rr!.:!rr=\*!=!:.  .   .:v'.:::
+iirv1rrTv!_rv*~*T1IiiTrr''''. ..  ......... .\1II1TA$ggggbvr=\==vrv_._!v=rr=r*\*~'.    .''~:..__
+TrrvivTriT=*r=v\Ti1oi1ir:'. ............. ... :~rIUggggQK*\\=!=r\\:_~vr=r===r\*\!.''   :':':' ::
+ivrr\TTvvvTv~_!v1ii1I11i_..'......... ......... .~Uggg$1*=\*irv!~~\=v*====r=!*r_'.~!.  .':.::.''
+i=rr=TvvTTi==~'=iTTTKI1vv_..'' ......  .........*\vARb=\vir=1vr=*=\r\==r=**==\\'.\~' .. '::__~. 
+1r=ivTTvTTIv=~~riiii1iiT1=:............... ...:_TT=_\i\rrv1TvT=ir\!!\r\r=!*=rv~''T_ .!*  ._::~' 
+ii=rrTTvTvviv*_\iiiTiiTiiiT!........ ... ..:~rr=\==TrrTr\rivviirvrrr=*\r=rv\rr.!\\. ***':':_:~::
+iTrTriTvTTvrv=*!ii1iiiiiiii1Tr!:_=_:.'''!!rvrrv\=\rTrrrv\rvTiTirrTrrT\=rv\r=!:'=\.''r::rv=':~::~
+T=TvvrvTTii\=!_:*ri1iiiTiiiiii1viovvTTviTTivTTiv\\r=r=rrrr\vivTvTTi*r=__r*!=::r_' _!_*r\~_!_:*!~
+1\rT1rvvTvvv\v!!~~\TTTvT1TiiiiiTTvii1TivTv1=vTv*rrr=\=viiir\r\\T1TirTr*!_:~:::=' :!vrv~____:~\!*
+1TrvvTTvTv=1r**Tv\=*=rriiiiiiiiiTTiiiT1T*v1r=r1rri!r\**~\*rrvvv=vv*rv=\r\~~:_~.'_\\v!_________~*
+1=TvrrTrvvvTT\*==**\\rrviiTTiiiiriiiiiiir1vi=Trvr\*rTr=rv\*!****=vrrrrvv=_:_::_*\~_____~___::_!*
+1=vTrirrTTvvvi\!=*rvr\_!r\=TvT1TiriiiiTivTvTv==vrvr==i\\rTr*=*!!*~**!**~!~~~\**!_!_'__:_::__~=~~
+1TvT\iv\TTvTTiv*rrr=*___!!!!~==r=TvT1iii1iviTiTrTi=TT\r==TT\vr\r!_~!r\*T=\*____~~::_!____!~~*v:.
+1vvT\11\TTTTTrTv*_v\\rTTrr\*!~r\r=\vTrvvvrrvvTvrTT*rT=rv*\=*!*!rrrr=rr\_!_~__:__:::__~__!~\vTv' 
+1vvT\Tr=TTvvvvTT=:*\vr=rvr=irvr\Tv*:rivrr\=TTrr\\!*\\r\=r*r=Tr*r\!_:~_:~__:_:______:~_~*=rr==!. 
+1vvTTrTrTTvTTvTTiT*!*rr=\r\==rrv\*\rvTr\=*Tvvvvr\=rTr=\*\=\!~::_:_~_:~_~_::::~~~:~_**!*rrrrr=.  
+1TiiTrrrrTvTTTTTriT=!~!rrrr===rr=r=TT*=*rirrrrrrr=~~_:::::_:_~~::~_::~_____~__~~!**\=rrrr=ir~   
+irTTivTrTv=TTTvTvTivT=*!!*rrrrr=rrr=r!rr\rrrrrr**!!*!_!~_:::!~:~:___~_~:~~_~!~\\rrrrrrrrr*r_.   
+Tv=v1vT\TTTrvi=TvTTvTTiv=*!\*vrrrrr===r=rrvrrrr===rr=\*_~*!*_!~!!_~~~~!~_:*\===rrrrrrrrrvri'    
+iTrvvii\rviiTivTvTTvTTTTivir===r====r===*=r=vrrrvrrr=rrrrrrr\\==========\=rrrrr=rrrrrrr=v\'   '_
+1\TTriiv=vrrvrrTTTvrTTvTTvTTvTvvTir=rr=rr\\*r=*\\rr=rrr=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrr=r!:  .!\v
+1=rvviivvv1\rirrriirTTvvvvvTvTTviT=iv\r=r===v=r==\r=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr\v_. '_Tr\
+Tirr=ii=rrvvr=iT\rrrTTvT1rTTvTiTTTvT\\rrrrr\r====*=rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr*!.._ri*\\
+ivTT\TTTvT\viriiTvTvTvvvriiiiii=r=vvvvrvrrr=vrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrvrrrv\:_!vr\vv=</pre>
+            <div class="scanline" aria-hidden="true"></div>
+          </div>
+          <div class="visual-foot"><span>IRIS / ACTIVE</span><span>DOM · TEXTO · CONTEXTO</span></div>
+          <p class="eye-caption"><span>“</span> O padrão aparece nos detalhes. <span>”</span></p>
+        </section>
+      </div>
+
+
+    </section>
+  </main>
+
+  <script>
+    /* ============================================================
+       RASTRO — máquina de estados da simulação (Sprint 4)
+       Todos os dados são FICTÍCIOS. Nenhuma URL é acessada.
+    ============================================================ */
+    const form           = document.getElementById("scanForm");
+    const input          = document.getElementById("urlInput");
+    const error          = document.getElementById("fieldError");
+    const button         = document.getElementById("submitButton");
+    const buttonLabel    = document.getElementById("buttonLabel");
+    const progressText   = document.getElementById("progressText");
+    const progressState  = document.getElementById("progressState");
+    const resultCard     = document.getElementById("resultCard");
+    const errorCard      = document.getElementById("errorCard");
+    const eyeWindow      = document.getElementById("eyeWindow");
+    const eyeState       = document.getElementById("eyeState");
+    const systemStatus   = document.getElementById("systemStatus");
+    const statusDot      = document.querySelector(".status-dot");
+    const resetButton    = document.getElementById("resetButton");
+    const resetButtonErr = document.getElementById("resetButtonErr");
+    
+    /* --- Validação de URL --- */
+    function validDemoUrl(value) {
+      let candidate = value.trim();
+      if (!candidate) return null;
+      if (!/^https?:\/\//i.test(candidate)) candidate = "https://" + candidate;
+      try {
+        const parsed = new URL(candidate);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+        if (!parsed.hostname || (!parsed.hostname.includes(".") && parsed.hostname !== "localhost")) return null;
+        return parsed;
+      } catch (_) { return null; }
+    }
+    
+    /* --- Dados mockados — 3 cenários de findings (Sprint 4) --- */
+    const MOCK_SCENARIOS = [
+      {
+        score: 72, label: "risco contextual<br>elevado \u00b7 simulado",
+        findings: [
+          { type: "Falsa escassez",     text: "\u201cRestam apenas 2 unidades\u201d" },
+          { type: "Indu\u00e7\u00e3o \u00e0 culpa",    text: "\u201cN\u00e3o, prefiro perder a oferta\u201d" },
+          { type: "Urg\u00eancia fabricada", text: "Contador regressivo sem data real" },
+          { type: "Ancoragem de pre\u00e7o", text: "Pre\u00e7o riscado inflacionado artificialmente" }
+        ]
+      },
+      {
+        score: 41, label: "risco moderado<br>2 padr\u00f5es \u00b7 simulado",
+        findings: [
+          { type: "Presel\u00e7\u00e3o oculta", text: "Newsletter marcada por padr\u00e3o no checkout" },
+          { type: "Roach motel",       text: "Cancelar assinatura redireciona para suporte" }
+        ]
+      },
+      {
+        score: 88, label: "risco alto<br>5 padr\u00f5es \u00b7 simulado",
+        findings: [
+          { type: "Falsa escassez",    text: "\u201cS\u00f3 1 restante!\u201d em produto digital" },
+          { type: "Dark overlay",      text: "Pop-up de sa\u00edda com bot\u00e3o de fechar invis\u00edvel" },
+          { type: "Confirmshaming",    text: "\u201cN\u00e3o, prefiro pagar mais\u201d" },
+          { type: "Pre\u00e7os enganosos", text: "Frete gr\u00e1tis na headline, cobrado no checkout" },
+          { type: "Nagging",           text: "Pop-up de cadastro exibido a cada 30 s" }
+        ]
+      }
+    ];
+    
+    /* --- Funções de estado --- */
+    function setState(stateMark, statusText, eyeText, scanning) {
+      progressState.querySelector(".state-mark").textContent = stateMark;
+      systemStatus.textContent = statusText;
+      eyeState.textContent = eyeText;
+      eyeWindow.classList.toggle("is-scanning", scanning);
+      statusDot.classList.toggle("is-scanning", scanning);
+    }
+    
+    function resetUI() {
+      input.disabled = false;
+      button.disabled = false;
+      buttonLabel.textContent = "ANALISAR P\u00c1GINA";
+      resultCard.hidden = true;
+      errorCard.hidden = true;
+      error.textContent = "";
+      input.removeAttribute("aria-invalid");
+      setState("[ OK ]", "SISTEMA PRONTO", "EM ESPERA", false);
+      progressText.textContent = "Aguardando uma URL...";
+      input.focus();
+    }
+    
+    function showSuccess(parsed, scenario) {
+      const domain = parsed.hostname.replace(/^www\./, "");
+      document.getElementById("resultDomain").textContent = domain.toUpperCase();
+      document.getElementById("resultScore").innerHTML = scenario.score + "<small>%</small>";
+      document.getElementById("resultLevel").innerHTML = scenario.label;
+      const list = document.getElementById("findingList");
+      list.innerHTML = scenario.findings.map(function (f) {
+        return "<div class=\"finding\"><b>" + f.type + "</b>" + f.text + "</div>";
+      }).join("");
+      resultCard.hidden = false;
+    }
+    
+    function showError(parsed) {
+      const domain = parsed ? parsed.hostname : "?";
+      document.getElementById("errorCode").textContent =
+        "SIM_ERR \u00b7 timeout simulado \u00b7 " + domain + " \u00b7 nenhum site foi acessado";
+      errorCard.hidden = false;
+    }
+    
+    /* --- Event listeners --- */
+    input.addEventListener("input", function () {
+      error.textContent = "";
+      input.removeAttribute("aria-invalid");
+    });
+    
+    resetButton.addEventListener("click", resetUI);
+    resetButtonErr.addEventListener("click", resetUI);
+    
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+    
+      /* Estado 1: validação de URL */
+      const parsed = validDemoUrl(input.value);
+      if (!parsed) {
+        error.textContent = "Digite uma URL v\u00e1lida, por exemplo: https://exemplo.com";
+        input.setAttribute("aria-invalid", "true");
+        input.focus();
+        return;
+      }
+    
+      /* Estado 2: analisando */
+      input.value = parsed.href;
+      error.textContent = "";
+      resultCard.hidden = true;
+      errorCard.hidden = true;
+      input.disabled = true;
+      button.disabled = true;
+      buttonLabel.textContent = "ANALISANDO...";
+      setState("[ .. ]", "VARREDURA EM CURSO", "ANALISANDO", true);
+    
+      const stages = [
+        "[SIM] Validando URL e cabe\u00e7alhos...",
+        "[SIM] Extraindo estrutura do DOM...",
+        "[SIM] Aplicando regras determin\u00edsticas...",
+        "[SIM] Calculando score de risco..."
+      ];
+      stages.forEach(function (stage, i) {
+        window.setTimeout(function () { progressText.textContent = stage; }, i * 820);
+      });
+    
+      /* Decide resultado: ~25% chance de falha simulada */
+      const willFail = Math.random() < 0.25;
+      const scenario = MOCK_SCENARIOS[Math.floor(Math.random() * MOCK_SCENARIOS.length)];
+    
+      window.setTimeout(function () {
+        input.disabled = false;
+        button.disabled = false;
+        buttonLabel.textContent = "ANALISAR NOVAMENTE";
+    
+        if (willFail) {
+          /* Estado 3: falha */
+          setState("[ !! ]", "ERRO DE ACESSO", "FALHA", false);
+          progressText.textContent = "[SIM] P\u00e1gina inacess\u00edvel \u2014 timeout simulado.";
+          showError(parsed);
+        } else {
+          /* Estado 4: sucesso com dados fict\u00edcios */
+          setState("[ OK ]", "SISTEMA PRONTO", "LEITURA CONCLU\u00cdDA", false);
+          progressText.textContent = "[SIM] An\u00e1lise conclu\u00edda. Nenhum site foi acessado.";
+          showSuccess(parsed, scenario);
+        }
+      }, 3500);
+    });
+  </script>
+</body>
+</html>
+
