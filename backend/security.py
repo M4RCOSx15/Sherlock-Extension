@@ -161,6 +161,15 @@ def _assert_ip_is_public(
     ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
 ) -> None:
     """Levanta SSRFError se o IP pertencer a qualquer range bloqueado."""
+    # `is_global` cobre também faixas especiais/reservadas que não estejam
+    # enumeradas explicitamente abaixo. Mantemos a lista como defesa adicional.
+    if not ip.is_global:
+        raise SSRFError(
+            "SSRF_BLOCKED_IP",
+            "URL aponta para um endereço IP que não é roteável publicamente. "
+            "O RASTRO não acessa redes internas.",
+        )
+
     for network in _BLOCKED_NETWORKS:
         if ip.version == network.version and ip in network:
             raise SSRFError(

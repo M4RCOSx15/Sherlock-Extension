@@ -411,9 +411,10 @@
 
     .result-card {
       margin-top: 17px;
-      padding: 15px;
+      padding: 20px;
       border: 1px solid rgba(234, 96, 121, .45);
       background: rgba(38, 20, 32, .46);
+      font-family: Arial, sans-serif;
       animation: reveal .34s ease-out both;
     }
 
@@ -424,41 +425,42 @@
       justify-content: space-between;
       gap: 12px;
       color: var(--rose);
-      font-size: 9px;
-      letter-spacing: .08em;
+      font-size: 12px;
+      letter-spacing: .06em;
     }
 
     .result-score-row {
       display: flex;
-      align-items: baseline;
-      gap: 10px;
-      margin: 9px 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      margin: 14px 0;
     }
 
     .result-score {
       color: #f1ddea;
-      font-size: 35px;
+      font-size: 52px;
       font-weight: 600;
-      letter-spacing: -.09em;
+      letter-spacing: -.04em;
       line-height: 1;
     }
 
     .result-score small {
       color: var(--rose);
-      font-size: 17px;
+      font-size: 26px;
     }
 
     .result-level {
       color: var(--muted);
-      font-size: 10px;
+      font-size: 16px;
+      line-height: 1.4;
     }
 
     .result-explain {
       margin: 0 0 11px;
       color: var(--muted);
-      font-family: Arial, sans-serif;
-      font-size: 11px;
-      line-height: 1.45;
+      font-size: 15px;
+      line-height: 1.55;
     }
 
     .finding-list {
@@ -468,19 +470,21 @@
     }
 
     .finding {
-      padding: 8px;
+      padding: 11px;
       border: 1px solid var(--line-soft);
       color: var(--ink);
-      font-size: 9px;
-      line-height: 1.4;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
     .finding b {
       display: block;
-      margin-bottom: 3px;
+      margin-bottom: 5px;
       color: var(--violet);
-      font-weight: 500;
+      font-weight: 600;
     }
+
+    .result-card .reset-button { font-size: 12px; }
 
     .visual-panel { min-width: 0; }
 
@@ -736,15 +740,15 @@
                 <span class="button-text"><span id="buttonLabel">ANALISAR PÁGINA</span><span aria-hidden="true">↗</span></span>
               </span>
             </button>
-            <p class="demo-note" id="demoNote" role="note"><strong>[ DEMO ]</strong><span>Nenhum site será acessado nesta prévia.</span></p>
+            <p class="demo-note" id="demoNote" role="note"><strong>[ LIVE ]</strong><span id="engineNote">Gemini 3.8 Flash opcional; análise semântica quando há texto suficiente.</span></p>
             <div class="progress-state" id="progressState" aria-live="polite"><span class="state-mark">[ OK ]</span><span id="progressText">Aguardando uma URL...</span></div>
           </form>
 
           <div class="result-card" id="resultCard" hidden aria-live="polite">
-            <span class="sim-badge">[ SIMULAÇÃO ]</span>
-            <div class="result-head"><span id="resultDomain">RESULTADO FICTÍCIO</span><span>ANÁLISE SIMULADA</span></div>
+            <span class="sim-badge"></span>
+            <div class="result-head"><span id="resultDomain">RESULTADO FICTÍCIO</span><span>ANÁLISE CONCLUÍDA</span></div>
             <div class="result-score-row"><div class="result-score" id="resultScore">72<small>%</small></div><div class="result-level" id="resultLevel">risco contextual<br>elevado · simulado</div></div>
-            <p class="result-explain">Score ilustrativo. Numa análise real, o motor determinístico e o LLM avaliam o DOM completo da página.</p>
+            <p class="result-explain" id="resultExplain">Varredura aplicada ao DOM carregado. O score é heurístico.</p>
             <div class="finding-list" id="findingList">
               <div class="finding"><b>Falsa escassez</b>"Restam apenas 2 unidades"</div>
               <div class="finding"><b>Indução à culpa</b>"Não, prefiro perder a oferta"</div>
@@ -753,7 +757,7 @@
           </div>
 
           <div class="error-card" id="errorCard" hidden aria-live="polite">
-            <span class="sim-badge">[ SIMULAÇÃO ]</span>
+            <span class="sim-badge"></span>
             <div class="error-head">[ ERRO ] — PÁGINA INACESSÍVEL</div>
             <p class="error-body">Não foi possível acessar a URL fornecida. Verifique se o endereço está correto e acessível publicamente.</p>
             <div class="error-code" id="errorCode">SIM_ERR · timeout simulado · nenhum site foi acessado</div>
@@ -859,6 +863,8 @@ const systemStatus   = document.getElementById("systemStatus");
 const statusDot      = document.querySelector(".status-dot");
 const resetButton    = document.getElementById("resetButton");
 const resetButtonErr = document.getElementById("resetButtonErr");
+const engineNote     = document.getElementById("engineNote");
+const resultExplain  = document.getElementById("resultExplain");
 
 /* --- Validação de URL (frontend — duplica a do backend) --- */
 function validDemoUrl(value) {
@@ -909,6 +915,7 @@ function resetUI() {
   buttonLabel.textContent = "ANALISAR PÁGINA";
   resultCard.hidden = true;
   errorCard.hidden = true;
+  engineNote.textContent = "Gemini 3.8 Flash opcional; análise semântica quando há texto suficiente.";
   error.textContent = "";
   input.removeAttribute("aria-invalid");
   setState("[ OK ]", "SISTEMA PRONTO", "EM ESPERA", false);
@@ -920,21 +927,66 @@ function resetUI() {
 function showSuccess(parsed, apiData) {
   const nFindings = apiData.findings.length;
   const riskLabel = RISK_LABELS[apiData.risk_level] || apiData.risk_level;
+  const riskDescriptor = String(riskLabel).replace(/^risco\s+/i, "");
   const domCount  = apiData.meta?.dom_elements_scanned ?? "?";
+  const llmStatus = apiData.meta?.llm_status ?? "disabled";
+
+  if (llmStatus === "ok") {
+    engineNote.textContent = "Análise híbrida: texto da página analisado pelo Gemini 3.8 Flash.";
+    resultExplain.textContent = "Regras e análise semântica aplicadas ao DOM/texto. O score é heurístico.";
+  } else if (llmStatus === "unavailable") {
+    engineNote.textContent = "Gemini indisponível; resultado determinístico exibido.";
+    resultExplain.textContent = "A análise semântica falhou ou não está configurada; o resultado usa regras determinísticas. O score é heurístico.";
+  } else if (llmStatus === "skipped") {
+    engineNote.textContent = "Sem texto suficiente para a análise Gemini; regras determinísticas exibidas.";
+    resultExplain.textContent = "A página não apresentou texto suficiente para a etapa semântica. O score é heurístico.";
+  } else {
+    engineNote.textContent = "Gemini desativado; análise determinística concluída.";
+    resultExplain.textContent = "Regras determinísticas aplicadas ao DOM carregado. O score é heurístico.";
+  }
 
   document.getElementById("resultDomain").textContent = apiData.domain.toUpperCase();
-  document.getElementById("resultScore").innerHTML = apiData.score + "<small>%</small>";
-  document.getElementById("resultLevel").innerHTML =
-    riskLabel + "<br>" + nFindings + " padrão" + (nFindings !== 1 ? "s" : "")
-    + " · " + domCount + " elementos";
+  const scoreElement = document.getElementById("resultScore");
+  scoreElement.replaceChildren(document.createTextNode(String(apiData.score)));
+  const scoreUnit = document.createElement("small");
+  scoreUnit.textContent = "%";
+  scoreElement.append(scoreUnit);
+
+  const resultLevel = document.getElementById("resultLevel");
+  resultLevel.replaceChildren(
+    document.createTextNode("risco contextual"),
+    document.createElement("br"),
+    document.createTextNode(
+      riskDescriptor + " · "
+        + nFindings + " padrão" + (nFindings !== 1 ? "s" : "")
+        + " · " + domCount + " elementos"
+    )
+  );
 
   const list = document.getElementById("findingList");
+  list.replaceChildren();
   if (nFindings === 0) {
-    list.innerHTML = '<div class="finding"><b>Nenhum padrão detectado.</b> A página parece seguir boas práticas de UX.</div>';
+    const emptyFinding = document.createElement("div");
+    emptyFinding.className = "finding";
+    const emptyTitle = document.createElement("b");
+    emptyTitle.textContent = "Nenhum padrão detectado.";
+    emptyFinding.append(
+      emptyTitle,
+      document.createTextNode(" A varredura não encontrou sinais nas regras cobertas.")
+    );
+    list.append(emptyFinding);
   } else {
-    list.innerHTML = apiData.findings.map(function (f) {
-      return '<div class="finding"><b>' + f.type + '</b>' + f.evidence + '</div>';
-    }).join("");
+    apiData.findings.forEach(function (finding) {
+      const card = document.createElement("div");
+      card.className = "finding";
+      const title = document.createElement("b");
+      title.textContent = String(finding.type ?? "Achado");
+      card.append(
+        title,
+        document.createTextNode(String(finding.evidence ?? ""))
+      );
+      list.append(card);
+    });
   }
 
   resultCard.hidden = false;

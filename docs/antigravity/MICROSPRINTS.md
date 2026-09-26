@@ -52,9 +52,26 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Escopo**: Trocar os mocks do frontend pelo `fetch` real batendo no backend rodando via Playwright.
 - **Critério de Aceite**: O fluxo completo (inserir URL -> esperar -> ver resultado) funciona ponta a ponta na máquina local.
 
+### [x] Sprint 11 — Segurança da fronteira de confiança (local)
+- **Escopo**: Renderizar evidências do site como texto inerte; filtrar requests HTTP(S) do Chromium contra destinos não públicos; desabilitar service workers; limitar o servidor de desenvolvimento a `127.0.0.1`; registrar as limitações de rede que ainda impedem deploy público.
+- **Critério de Aceite**: Evidências contendo markup não criam elementos executáveis; casos locais de loopback, rede privada, IPv6 loopback e protocolo não HTTP são bloqueados pelo filtro; requests públicos de teste passam sem serem enviados; o servidor não escuta em todas as interfaces.
+- **Limitação**: O filtro de aplicação não é uma barreira completa contra redirects ou DNS rebinding. Deploy público depende de isolamento de egress na rede/ambiente do Chromium.
+
+### [x] Sprint 12 — Isolamento de egress do Chromium
+- **Estado**: gate concluído e validado pelo usuário no Docker local em 2026-09-26. Scans públicos em example.com/YouTube passam; tentativa de egress direto para 1.1.1.1:443 retorna `BLOQUEADO`, inclusive após reinício; loopback, RFC1918 (10.0.0.1), link-local/metadata (169.254.169.254), hostname Docker interno e IPv4 mapeado em IPv6 são recusados. Redirect de controle para example.com conclui; redirect para 127.0.0.1 retorna `ACCESS_BLOCKED` sem relatório. Após `docker compose restart`, ambos os serviços retornam `healthy` e a análise pública continua funcionando. `docker compose top` confirma Uvicorn UID 1000 (`pwuser`) e Squid usuário `proxy` (UID 13); o scraper usa `chromium_sandbox=True` com seccomp customizado, sem `--no-sandbox`.
+- **Escopo**: executar API e Chromium em container sem saída direta; permitir tráfego web somente por proxy dedicado; aplicar firewall de saída no scanner e no proxy; bloquear destinos privados/reservados e todo IPv6 no proxy; manter a porta da API publicada apenas em loopback; falhar fechado quando proxy obrigatório estiver ausente.
+- **Arquivos**: `Dockerfile`, `compose.yaml`, `.dockerignore`, `docker/api-entrypoint.sh`, `docker/egress/` e configuração de produção do scraper.
+- **Critérios para concluir**: `docker compose config` válido; imagens iniciam com usuários não privilegiados após aplicar firewall; UI/API funcionam; acesso público funciona através do proxy; destinos loopback, RFC1918, link-local/metadata, hostname interno e redirects para esses destinos são bloqueados; conexão direta de saída da API falha; Chromium mantém sandbox ativo; reiniciar containers conserva a política.
+- **Gate**: concluído no Docker Engine local. Isso valida o isolamento da stack de desenvolvimento; qualquer deploy público exige uma microsprint de produção própria e aprovação explícita do usuário.
+
+### [x] Sprint 13 — Integração opcional de LLM (Gemini/Qwen)
+- **Estado**: concluída e validada no Docker local. Em 2026-09-26, o usuário confirmou na interface uma análise híbrida com Gemini 3.8 Flash em mercadolivre.com.br (13.161 ms). As regras determinísticas continuam como fallback. A validação revelou um possível falso positivo de overlay: a evidência exibida foi texto de navegação acessível (“Pular para o conteúdo”), registrado para a próxima microsprint de qualidade.
+- **Escopo**: complementar as regras determinísticas com uma chamada semântica opcional a um provedor compatível com OpenAI; enviar apenas um recorte limitado de texto visível e controles da página; validar a evidência devolvida; manter a chave no backend e usar o proxy de egress existente no Docker. O adaptador Gemini usa JSON mode e omite `temperature`, que não é aceito pelo modelo configurado.
+- **Fora do escopo**: streaming de raciocínio, envio do HTML integral, armazenamento da chave no repositório, treinamento/calibração estatística do score, deploy e persistência. A interface/documentação deve informar que o recorte textual é enviado ao provedor quando a opção for habilitada.
+- **Critérios para concluir**: com `LLM_ENABLED=false` ou sem uma chave válida, o comportamento determinístico continua disponível; com Gemini configurado localmente, a API chama o provedor através do proxy, agrega apenas achados com citação presente no texto enviado e informa o estado em `meta.llm_status`; falha/timeout do provedor retorna o resultado determinístico; o segredo não aparece no frontend, nos relatórios ou nos logs; o `.env` não é versionado. A configuração gratuita do Gemini informa o uso dos dados enviados para melhoria de produtos e revisão humana.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)
-- **Fase 2 (LLM)**: Só entrará em cena após o MVP determinístico estar robusto. Será feita a integração com OpenRouter usando apenas prompts semânticos refinados, sem envio de credenciais no frontend.
-- **Deploy**: Criação de Dockerfile e setup na Oracle Cloud (VPS).
+- **Deploy**: Depois do gate de segurança da Sprint 12, configurar deploy na Oracle Cloud (VPS).
 - **Persistência**: Banco de dados para salvar relatórios históricos.

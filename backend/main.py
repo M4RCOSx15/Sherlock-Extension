@@ -5,9 +5,17 @@ Sprint 9: motor determinístico de detecção de dark patterns integrado.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import sys
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+
+# Patch obrigatório para rodar Playwright + FastAPI (Uvicorn) no Windows.
+# O Playwright usa subprocessos, que exigem o ProactorEventLoopPolicy no Windows.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status
@@ -15,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
 from backend.analyzer import ScanFinding, analyze, compute_score, rules_count
+from backend.llm_analyzer import analyze_semantically
 from backend.scraper import ScraperError, fetch_page
 from backend.security import SSRFError, check_ssrf
 
@@ -30,9 +39,9 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")]
 app = FastAPI(
     title="RASTRO API",
     description=(
-        "Scanner de dark patterns e copywriting manipulativo em páginas web.\n\n"
-        "> **Sprint 6 — Stub:** o endpoint `/api/scan` retorna dados fictícios. "
-        "O scraping real entra na Sprint 8."
+        "Scanner de dark patterns e copywriting manipulativo em páginas web. "
+        "O endpoint `/api/scan` usa Playwright e regras determinísticas, com "
+        "análise semântica opcional via provedor OpenAI-compatible quando configurada."
     ),
     version=APP_VERSION,
     docs_url="/docs",
@@ -79,6 +88,7 @@ class Finding(BaseModel):
 class ScanMeta(BaseModel):
     phase: int
     engine: str
+    llm_status: str       # "disabled" | "ok" | "skipped" | "unavailable"
     duration_ms: int
     rules_applied: int
     dom_elements_scanned: int
@@ -152,10 +162,13 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
     """
     Recebe uma URL e retorna um relatório de dark patterns detectados.
 
-    **Sprint 8:** scraping real via Playwright/Chromium.
-    **Sprint 7:** validação anti-SSRF ativa — URLs internas rejeitadas com 422.
-    **Sprint 9:** análise determinística de dark patterns (ainda stub).
+    **Sprint 7/11:** validação anti-SSRF por aplicação e filtro de requests.
+    **Sprint 8:** scraping via Playwright/Chromium.
+    **Sprint 9/10:** regras determinísticas integradas à interface.
+    **Sprint 13:** etapa semântica opcional com fallback determinístico.
     """
+    started_at = time.monotonic()
+
     # ── 1. Blindagem anti-SSRF ────────────────────────────────
     # DEVE ser a primeira verificação — antes de qualquer I/O de rede.
     try:
@@ -198,7 +211,24 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
         html=page_data.html,
         text=page_data.text_content,
     )
+
+    # ── 4. Análise semântica opcional via LLM ─────────────────
+    llm_result = await analyze_semantically(
+        html=page_data.html,
+        text=page_data.text_content,
+    )
+    existing = {
+        (finding.id, " ".join(finding.evidence.strip(' \"\'…').split()).casefold())
+        for finding in raw_findings
+    }
+    for finding in llm_result.findings:
+        key = (finding.id, " ".join(finding.evidence.strip(' \"\'…').split()).casefold())
+        if key not in existing:
+            raw_findings.append(finding)
+            existing.add(key)
+
     score = compute_score(raw_findings)
+    llm_used = llm_result.status == "ok"
 
     # Mapeia ScanFinding → Finding (schema do contrato)
     findings = [
@@ -222,9 +252,10 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
         risk_level=_score_to_risk_level(score),
         findings=findings,
         meta=ScanMeta(
-            phase=1,
-            engine="deterministic",
-            duration_ms=page_data.duration_ms,
+            phase=2 if llm_used else 1,
+            engine="hybrid" if llm_used else "deterministic",
+            llm_status=llm_result.status,
+            duration_ms=round((time.monotonic() - started_at) * 1000),
             rules_applied=rules_count(),
             dom_elements_scanned=page_data.dom_element_count,
         ),
@@ -248,4 +279,4 @@ if _FRONTEND_DIR.exists():
 # Prefira rodar via: uvicorn backend.main:app --reload
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=APP_PORT, reload=True)
+    uvicorn.run("backend.main:app", host="127.0.0.1", port=APP_PORT, reload=True)

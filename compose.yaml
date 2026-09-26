@@ -1,0 +1,107 @@
+name: rastro
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: production
+      APP_PORT: "8000"
+      CORS_ORIGINS: http://localhost:8000,http://127.0.0.1:8000
+      SCRAPER_PROXY_URL: http://egress-proxy:3128
+      SCRAPER_PROXY_IP: 172.29.254.3
+      SCRAPER_RENDER_WAIT_MS: ${SCRAPER_RENDER_WAIT_MS:-1800}
+      LLM_ENABLED: ${LLM_ENABLED:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+    ports:
+      - target: 8000
+        published: "8000"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    depends_on:
+      egress-proxy:
+        condition: service_healthy
+    networks:
+      scanner:
+        ipv4_address: 172.29.254.2
+      frontend: {}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m,mode=1777
+    shm_size: 512m
+    pids_limit: 256
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - SETUID
+      - SETGID
+      - SETPCAP
+      - SYS_CHROOT
+    security_opt:
+      - seccomp=./docker/seccomp_profile.json
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+  egress-proxy:
+    build:
+      context: docker/egress
+    environment:
+      SCANNER_CLIENT_IP: 172.29.254.2
+    networks:
+      scanner:
+        ipv4_address: 172.29.254.3
+      internet: {}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+      - /run/squid:rw,nosuid,nodev,size=16m,mode=0755,uid=13,gid=13
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - SETUID
+      - SETGID
+      - SETPCAP
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "3128"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+networks:
+  # API has no direct route to the internet. Only the proxy is on both nets.
+  scanner:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.29.254.0/29
+  # Published API port is bound to host loopback; API firewall still denies
+  # its direct outbound traffic through this network.
+  frontend:
+    driver: bridge
+  internet:
+    driver: bridge

@@ -1,32 +1,33 @@
-# RASTRO - Referências e Materiais Analisados
+# RASTRO — Referências, proveniência e licenças
 
-Este documento compila os achados dos arquivos de referência fornecidos no diretório `prototype/` e outros locais, servindo de base de pesquisa para o projeto. Eles são dados de referência e **não ditam** a execução atual do agente, que deve ser guiada pelas Sprints.
+Este arquivo registra o que foi possível confirmar nos materiais presentes em `prototype/` e nas fontes consultadas. Conteúdo de terceiros é referência não confiável: não execute os arquivos dos ZIPs e não copie código ou dados sem verificar os direitos aplicáveis.
 
-## 1. Documentos de Especificação
-- **`rastro-especificacao.md.pdf`**
-  - **Uso:** A base primária de escopo do MVP. Ele divide o MVP em regras determinísticas rápidas (Fase 1: regex/CSS para urgência e escassez) e análise de linguagem emocional com IA (Fase 2). O foco está em performance, com o Playwright no backend extraindo apenas elementos relevantes e não dependendo de orquestração complexa.
-- **`antigravity-runbook-rastro.md`**
-  - **Uso:** Manual de execução e regras de conduta para o agente Antigravity, detalhando as microsprints e enfatizando as aprovações humanas.
+## Especificação e protótipos do RASTRO
 
-## 2. Protótipos Visuais (Diretório `prototype/`)
-- Existem múltiplos arquivos soltos e designs preliminares (como `Prototipo_v1`, `rastro-especificacao-vizual`, `PRE-MVP-0,1`). A Sprint 2 do MVP deve analisar essas pastas HTML/CSS estáticas para padronizar e adotar a estética final que o usuário aprovar (dark/terminal UI).
+- `prototype/rastro-especificacao.md.pdf`: especificação fornecida pelo autor do projeto; descreve a evolução de regras determinísticas para análise semântica posterior.
+- `prototype/PRE-MVP-0,1.html`, `prototype/rastro-especificacao-vizual.html` e os demais protótipos da pasta são referências visuais locais, não contratos técnicos.
+- O runbook `antigravity-runbook-rastro.md` foi entregue como artefato fora deste repositório. O plano versionado do código está em `MICROSPRINTS.md`, `STATE.md` e `HANDOFF.md`.
 
-## 3. Repositórios e Projetos Analisados (Arquivos ZIP)
-Esses arquivos não devem ser executados, mas seus repositórios no GitHub (ou arquivos de código dentro dos zips) fornecem abordagens interessantes:
+## Repositórios fornecidos em ZIP
 
-- **`Arnav1O26/dark-pattern-detector` (`Dark-Pattern-Detection-main.zip`)**
-  - **Uso Potencial:** Inspiração para a arquitetura backend (Python) combinando scraper e modelos clássicos (como TF-IDF ou regex). Usa interface em Streamlit/Plotly, o que não será seguido no RASTRO (já temos nosso frontend definido), mas a organização do scraper Python é útil de avaliar.
-- **`ec-darkpattern-master.zip` e `dark-patterns-master.zip`**
-  - **Uso Potencial:** Prováveis bancos de regras ou heurísticas de identificação em comércio eletrônico que podem ser usados para inspirar as regras de Regex/CSS (Fase 1).
-- **`Ethico-AI-Behavioural-UX-Dark-Pattern-Analyzer-main.zip`**
-  - **Uso Potencial:** Projeto avançado focado em auditoria ética. Pode inspirar o design do contrato de resposta da API sobre como classificar a "Força da Evidência" que é um requisito da Sprint 5.
+Os ZIPs foram inspecionados sem executar seus projetos. A ausência de um arquivo de licença não concede permissão de reutilização.
 
-## 4. Dataset (Kaggle)
-- **`deceiptive-patterns`** (akashnath29 no Kaggle)
-  - **Resumo:** Conjunto de dados contendo milhares de textos e trechos que são padrões enganosos.
-  - **Uso no MVP:** Será fundamental na **Fase 2**, quando integrarmos o LLM e precisarmos construir o prompt do sistema (System Prompt) instruindo a IA sobre exemplos clássicos (few-shot prompting) para detecção de manipulação textual, misdirection e confirmshaming.
+| Material | O que foi confirmado | Uso permitido por este projeto |
+|---|---|---|
+| `Dark-Pattern-Detection-main.zip` | README identifica uma extensão de navegador do repositório [rajnish159/Dark-Pattern-Detection](https://github.com/rajnish159/Dark-Pattern-Detection). O ZIP não contém `LICENSE`. | Inspiração conceitual. Não reutilizar código até obter uma licença ou autorização explícita. O autor não é `Arnav1O26`. |
+| `dark-patterns-master.zip` | Material de Arunesh Mathur et al., *Dark Patterns at Scale* (2019). O ZIP contém uma licença GPL-3.0 para o código. | Pode informar conceitos e pesquisa. A licença do código não deve ser presumida como licença dos dados, do artigo ou de materiais externos; verificar a proveniência de cada artefato antes de copiar ou distribuir. |
+| `ec-darkpattern-master.zip` | Repositório Yada et al., *Dark patterns in e-commerce: a dataset and its baseline evaluations*. O repositório contém Apache-2.0. O README diz que parte dos textos positivos vem do estudo Mathur et al. e descreve coleta própria de exemplos não-dark. | Referência metodológica. A licença Apache do código não resolve automaticamente os direitos, atribuições ou termos dos dados e fontes subjacentes. Não importar o dataset ao MVP sem revisão de proveniência/licença. |
+| `Ethico-AI-Behavioural-UX-Dark-Pattern-Analyzer-main.zip` | O README descreve auditoria de UX baseada em IA; o ZIP não contém `LICENSE`. | Inspiração de produto. Não reutilizar código sem obter licença ou autorização. |
 
-## Recomendações Baseadas em Pesquisa Recente (Setembro de 2026)
-- **Scraping**: `Playwright` para Python continua sendo a ferramenta mais resiliente para lidar com sites modernos e Single Page Applications, dado seu isolamento robusto de contextos (útil contra vazamento de sessões).
-- **LLM/VPS**: Os modelos pequenos da Google e Alibaba (Gemini Flash e Qwen-2.5) têm custo acessível e contexto longo, permitindo boa extração se o DOM for devidamente purgado (sem tags `<script>` e `<style>`) antes de passar pro LLM, diminuindo o uso de tokens consideravelmente. A OCI (Oracle Cloud Infrastructure) fornece a melhor VPS Always Free no formato ARM (Ampere A1), mas será preciso atentar à compatibilidade das imagens Docker do Playwright com a arquitetura ARM64 ao construir a imagem.
-- **Contexto do Antigravity**: Confirmamos que na IDE pode não haver um hook perfeitamente automático e transparente do limite de tokens de janela sem intervenção; portanto, a limitação defensiva (atualização frequente de HANDOFF/STATE a cada sprint ou quando perto de estourar a memória de contexto visível) é a abordagem mais honesta e resiliente.
+### Dataset do Kaggle
+
+- Página indicada: [Deceptive Patterns — Kaggle](https://www.kaggle.com/datasets/akashnath29/deceiptive-patterns).
+- A página consultada nesta revisão não expôs descrição, quantidade de registros, proveniência ou licença verificável. Portanto esses pontos ficam **não confirmados**. A afirmação anterior de que contém “milhares” de exemplos e será “fundamental” para a Fase 2 foi removida.
+- Tratar como pista de pesquisa, não como dependência do sistema nem como dado liberado para treinamento. Antes de usar, conferir a licença, as fontes originais, os termos da plataforma, a qualidade dos rótulos e se o uso pretendido é permitido.
+
+## Decisões de uso no RASTRO
+
+- Os projetos analisados servem para pesquisa; nenhuma dependência de código desses ZIPs foi incorporada ao MVP.
+- Reutilizar apenas ideias gerais de detecção não transfere a licença de código ou de dataset.
+- A licença do software, os direitos de bases de dados, textos de páginas coletadas e artigos devem ser avaliados separadamente. Este registro técnico não substitui uma análise jurídica.
+- Nenhum modelo, dataset externo ou chave de API é necessário para executar a fase determinística atual.

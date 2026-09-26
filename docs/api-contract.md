@@ -1,22 +1,33 @@
-# RASTRO — Contrato da API
+# RASTRO — Contrato implementado da API
 
-> **Status:** Definido · **Versão:** 0.1 · **Fase:** Sprint 5 (sem implementação de backend)
+> **Versão:** 0.3
+> **Atualizado em:** 2026-09-26
+> **Estado:** descreve o comportamento implementado em `backend/main.py`, incluindo a chamada semântica opcional via provedor compatível com OpenAI.
 
-Este documento é a fonte de verdade do contrato HTTP entre o `frontend/` e o `backend/`.  
-Qualquer alteração aqui deve ser aprovada antes de ser implementada.
+## Health check
 
----
-
-## Endpoint único (MVP)
-
+```http
+GET /api/health
 ```
+
+Resposta `200 OK`:
+
+```json
+{
+  "status": "ok",
+  "version": "0.1.0",
+  "environment": "development"
+}
+```
+
+## Análise de URL
+
+```http
 POST /api/scan
 Content-Type: application/json
 ```
 
----
-
-## Request
+Request:
 
 ```json
 {
@@ -24,38 +35,26 @@ Content-Type: application/json
 }
 ```
 
-| Campo | Tipo | Obrigatório | Validação |
-|---|---|---|---|
-| `url` | `string` | ✅ | Protocolo `http` ou `https`. Hostname público (não-IP, não-localhost em produção). Máx. 2048 chars. |
+O campo `url` é uma string. O backend remove espaços nas pontas e acrescenta `https://` quando o valor não começa com `http://` ou `https://`. Depois valida a estrutura e aplica a verificação anti-SSRF antes de abrir o navegador. O código não declara atualmente um limite próprio de 2.048 caracteres.
 
----
+O Playwright carrega a página, aguarda por padrão 1.800 ms após DOMContentLoaded para permitir renderização/hidratação de SPAs (configurável por SCRAPER_RENDER_WAIT_MS, limitado a 0–5.000 ms) e então o analisador determinístico examina o DOM/texto. Se LLM_ENABLED=true e a chave estiver configurada, uma etapa opcional envia ao provedor escolhido (Gemini ou Qwen) até 12.000 caracteres de texto visível e sinais de controles da página, em payload limitado a 16.000 caracteres. HTML bruto não é enviado. A chamada do LLM usa timeout padrão de 30 segundos (LLM_TIMEOUT_SECONDS); em Docker, sai pelo proxy de egress. Se o modelo estiver desativado, sem chave ou indisponível, a API mantém o resultado determinístico. No plano gratuito do Gemini, o provedor pode usar entradas e respostas para melhorar produtos e permitir revisão humana; não envie conteúdo sensível.
 
-## Respostas de Sucesso
-
-### `200 OK` — Análise concluída
+### Sucesso — `200 OK`
 
 ```json
 {
   "status": "ok",
   "url": "https://exemplo.com/pagina",
   "domain": "exemplo.com",
-  "scanned_at": "2026-09-25T17:00:00Z",
-  "score": 72,
-  "risk_level": "high",
+  "scanned_at": "2026-09-25T17:00:00+00:00",
+  "score": 20,
+  "risk_level": "low",
   "findings": [
     {
       "id": "fake_scarcity",
       "type": "Falsa escassez",
       "severity": "high",
-      "evidence": "\"Restam apenas 2 unidades\"",
-      "phase": 1,
-      "engine": "deterministic"
-    },
-    {
-      "id": "confirmshaming",
-      "type": "Indução à culpa",
-      "severity": "medium",
-      "evidence": "\"Não, prefiro perder a oferta\"",
+      "evidence": "Restam 2 unidades",
       "phase": 1,
       "engine": "deterministic"
     }
@@ -63,129 +62,59 @@ Content-Type: application/json
   "meta": {
     "phase": 1,
     "engine": "deterministic",
-    "duration_ms": 1240,
-    "rules_applied": 12,
+    "llm_status": "disabled",
+    "duration_ms": 1840,
+    "rules_applied": 6,
     "dom_elements_scanned": 347
   }
 }
 ```
 
-#### Campos da resposta raiz
+Quando a etapa semântica termina com sucesso, `meta.phase` é `2`, `meta.engine` é `hybrid`, e findings produzidos pelo modelo têm `phase: 2` e `engine: "llm"`. `meta.llm_status` pode ser `disabled`, `ok`, `skipped` (sem conteúdo útil para enviar) ou `unavailable`. Em `unavailable`, a resposta continua `200 OK` e contém o resultado determinístico. `duration_ms` mede o tempo total da requisição de análise.
 
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `status` | `"ok"` | Sempre `"ok"` neste cenário |
-| `url` | `string` | URL normalizada analisada |
-| `domain` | `string` | Hostname sem `www.` |
-| `scanned_at` | `string (ISO 8601)` | Timestamp UTC da análise |
-| `score` | `integer (0–100)` | Score de risco agregado |
-| `risk_level` | `"low" \| "medium" \| "high" \| "critical"` | Classificação textual do score |
-| `findings` | `Finding[]` | Array de achados (pode ser vazio `[]`) |
-| `meta` | `object` | Metadados internos da análise |
+`score` é a soma dos pesos por severidade (`critical=30`, `high=20`, `medium=10`, `low=5`), limitada a 100. Quando o LLM está ativo, findings determinísticos e semânticos contribuem para a mesma soma. É um indicador heurístico não calibrado; não representa probabilidade estatística nem prova de intenção.
 
-#### Thresholds de `risk_level`
+| Faixa do score | `risk_level` |
+|---:|---|
+| 0–24 | `low` |
+| 25–49 | `medium` |
+| 50–74 | `high` |
+| 75–100 | `critical` |
 
-| Score | `risk_level` | Label exibido no frontend |
-|---|---|---|
-| 0–24 | `"low"` | risco baixo |
-| 25–49 | `"medium"` | risco moderado |
-| 50–74 | `"high"` | risco elevado |
-| 75–100 | `"critical"` | risco crítico |
+As seis regras atualmente registradas são `fake_scarcity`, `fake_urgency`, `confirmshaming`, `price_anchoring`, `hidden_preselection` e `dark_overlay`. `findings` pode ser vazio. `meta.rules_applied` é a quantidade de regras registradas, não a quantidade de achados.
 
-#### Campos do objeto `Finding`
+### Respostas de erro
 
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `id` | `string` | Identificador interno da regra (snake_case) |
-| `type` | `string` | Nome legível do padrão detectado |
-| `severity` | `"low" \| "medium" \| "high" \| "critical"` | Gravidade do achado |
-| `evidence` | `string` | Trecho de texto ou descrição do elemento detectado |
-| `phase` | `1 \| 2` | Fase de detecção: `1` = determinístico, `2` = LLM |
-| `engine` | `"deterministic" \| "llm"` | Motor que gerou o achado |
-
----
-
-## Respostas de Erro
-
-### `422 Unprocessable Entity` — URL inválida (validação antes do scraping)
+Os erros lançados com `HTTPException` aparecem no corpo dentro de `detail`, como é padrão no FastAPI:
 
 ```json
 {
-  "status": "error",
-  "code": "INVALID_URL",
-  "message": "A URL fornecida não é válida ou não usa protocolo HTTP/HTTPS.",
-  "detail": null
+  "detail": {
+    "status": "error",
+    "code": "SSRF_BLOCKED_IP",
+    "message": "A URL aponta para um destino bloqueado.",
+    "detail": null
+  }
 }
 ```
 
-### `503 Service Unavailable` — Página inacessível (scraping falhou)
+| HTTP | Caso implementado | Corpo |
+|---:|---|---|
+| `422` | Erro de validação do request | `detail` de validação padrão do FastAPI; a forma não é igual à dos erros do scanner. |
+| `422` | Destino rejeitado pela validação anti-SSRF | `detail` contém `status`, `code`, `message` e `detail`. |
+| `403` | Página devolveu `403` ou `429`, interpretada como bloqueio anti-bot | `detail` contém os campos do erro do scanner. |
+| `503` | Falha ou indisponibilidade do scraper | `detail` contém os campos do erro do scanner. |
+| `500` | Erro não tratado | Resposta padrão de erro do FastAPI/Uvicorn. |
 
-```json
-{
-  "status": "error",
-  "code": "PAGE_UNREACHABLE",
-  "message": "Não foi possível acessar a página. Verifique se o endereço está correto e acessível publicamente.",
-  "detail": "timeout após 15000ms"
-}
-```
+Não há rate limit implementado no endpoint: `429` não é um erro emitido pelo controle de taxa do RASTRO. Também não há tratamento customizado `415`.
 
-> **Nota:** Este é o cenário simulado no frontend com ~25% de probabilidade.
+## CORS e configuração
 
-### `403 Forbidden` — Bloqueado por anti-bot (Cloudflare, Datadome, etc.)
+`CORS_ORIGINS` configura as origens, separadas por vírgula. O valor padrão do código é `*`; `.env.example` sugere `http://localhost:8000`. Métodos aceitos pelo middleware: `GET`, `POST` e `OPTIONS`; header permitido: `Content-Type`.
 
-```json
-{
-  "status": "error",
-  "code": "ACCESS_BLOCKED",
-  "message": "A página bloqueou o acesso automatizado. O RASTRO não tenta bypassar proteções anti-bot.",
-  "detail": "HTTP 403 recebido do servidor de destino"
-}
-```
+## Limitações do contrato atual
 
-### `429 Too Many Requests` — Rate limit da API RASTRO
-
-```json
-{
-  "status": "error",
-  "code": "RATE_LIMIT",
-  "message": "Muitas requisições. Aguarde antes de enviar outra URL.",
-  "detail": "retry_after_seconds: 30"
-}
-```
-
-### `500 Internal Server Error` — Erro inesperado no backend
-
-```json
-{
-  "status": "error",
-  "code": "INTERNAL_ERROR",
-  "message": "Ocorreu um erro interno. Tente novamente em instantes.",
-  "detail": null
-}
-```
-
----
-
-## Catálogo de `id` de findings (Fase 1 — determinístico)
-
-Regras planejadas para a Sprint 9:
-
-| `id` | `type` | Método de detecção |
-|---|---|---|
-| `fake_scarcity` | Falsa escassez | Regex em texto de botões/badges |
-| `fake_urgency` | Urgência fabricada | Regex + detecção de countdown |
-| `confirmshaming` | Indução à culpa | Regex em textos de recusa |
-| `price_anchoring` | Ancoragem de preço | CSS selector em preços riscados |
-| `hidden_preselection` | Pré-seleção oculta | Atributo `checked` em inputs ocultos |
-| `roach_motel` | Roach motel | Comparação de fluxo assimétrico |
-| `dark_overlay` | Dark overlay | Detecção de modais com z-index alto |
-| `nagging` | Nagging | Contagem de modais por sessão |
-
----
-
-## Notas de implementação (para Sprint 6+)
-
-- O backend **não salva** resultados em banco de dados no MVP (stateless).
-- O `score` é calculado como: `min(100, soma dos pesos de cada finding)` onde pesos variam por `severity`: `critical=30, high=20, medium=10, low=5`.
-- O `Content-Type: application/json` é obrigatório no request; o backend retorna `415` caso contrário.
-- CORS: em desenvolvimento, aceita `*`. Em produção, apenas o domínio configurado em `CORS_ORIGINS`.
+- O provedor pode estar indisponível ou produzir uma interpretação incompleta; os findings semânticos são limitados a quatro e só entram na resposta se a evidência retornada aparecer literalmente no recorte enviado. Isso reduz citações inventadas, mas não valida a interpretação do modelo.
+- Não há autenticação, persistência, histórico, download de relatório nem rate limiting.
+- Códigos e mensagens exatos de exceções de validação podem variar com a versão do FastAPI/Pydantic; consumidores devem usar o status HTTP e tratar os formatos documentados sem depender de texto específico.
+- A checagem anti-SSRF da aplicação é defesa em profundidade. O modo Docker com egress controlado está documentado separadamente e ainda exige validação operacional antes de exposição pública.
