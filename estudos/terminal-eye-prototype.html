@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a11">
+  <title>Rastro — scanner de padrões</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080910;
+      --panel: #0c0d15;
+      --panel-soft: #10111b;
+      --line: #514d60;
+      --line-soft: rgba(177, 165, 208, .19);
+      --ink: #e8e4ee;
+      --muted: #a19bae;
+      --quiet: #6f6a7b;
+      --violet: #c6b6e8;
+      --rose: #ea6079;
+      --rose-soft: #a8465d;
+      --green: #b9d8ca;
+      --font: "IBM Plex Mono", "Cascadia Mono", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 1px 0 28px;
+      background:
+        radial-gradient(ellipse at 51% 39%, rgba(73, 51, 92, .18), transparent 47%),
+        #080910;
+      color: var(--ink);
+      font-family: var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+
+    .page-shell {
+      width: min(1110px, calc(100% - 44px));
+      margin: clamp(24px, 6vh, 62px) auto 0;
+    }
+
+    .terminal {
+      position: relative;
+      padding: clamp(23px, 4vw, 43px);
+      border: 1px dashed var(--line);
+      background: linear-gradient(145deg, rgba(17, 17, 27, .98), rgba(9, 10, 16, .98));
+      box-shadow: 0 22px 80px rgba(0, 0, 0, .36), inset 0 0 50px rgba(81, 63, 107, .035);
+    }
+
+    .terminal::before,
+    .terminal::after {
+      content: "";
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border: 1px solid var(--rose-soft);
+      background: var(--bg);
+    }
+
+    .terminal::before { top: -4px; left: 20px; }
+    .terminal::after { right: 20px; bottom: -4px; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 21px;
+      border-bottom: 1px dashed var(--line-soft);
+    }
+
+    .identity {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 37px;
+      height: 37px;
+      flex: 0 0 auto;
+      border: 1px solid var(--rose-soft);
+      color: var(--rose);
+      font-size: 13px;
+      letter-spacing: -.13em;
+      text-indent: -.13em;
+    }
+
+    .wordmark {
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: .13em;
+    }
+
+    .wordmark span { color: var(--rose); }
+
+    .descriptor {
+      margin-top: 4px;
+      color: var(--quiet);
+      font-size: 9px;
+      letter-spacing: .15em;
+    }
+
+    .system-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 11px;
+      border: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: .09em;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--rose);
+      box-shadow: 0 0 10px rgba(234, 96, 121, .72);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+      align-items: center;
+      gap: clamp(32px, 6vw, 76px);
+      padding: clamp(31px, 5vw, 52px) 0 30px;
+    }
+
+    .section-index,
+    .visual-index {
+      margin: 0;
+      color: var(--rose);
+      font-size: 10px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .section-index span { color: var(--quiet); }
+
+    h1 {
+      max-width: 500px;
+      margin: 18px 0 13px;
+      font-size: clamp(25px, 3.1vw, 39px);
+      line-height: 1.23;
+      letter-spacing: -.065em;
+      font-weight: 600;
+    }
+
+    h1 em {
+      color: var(--violet);
+      font-style: normal;
+    }
+
+    .intro {
+      max-width: 440px;
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .terminal-prompt {
+      margin: 0 0 9px;
+      color: var(--green);
+      font-size: 11px;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: .1em;
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 45px;
+      padding: 0 12px;
+      border: 1px solid var(--rose-soft);
+      background: #0b0c13;
+      box-shadow: 0 0 14px rgba(234, 96, 121, .09);
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .input-wrap:focus-within {
+      border-color: var(--rose);
+      box-shadow: 0 0 18px rgba(234, 96, 121, .2);
+    }
+
+    .input-caret {
+      color: var(--rose);
+      font-size: 14px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 12px;
+    }
+
+    input::placeholder { color: #625e6b; opacity: 1; }
+    input:disabled { opacity: .56; }
+
+    .field-error {
+      min-height: 17px;
+      margin: 6px 0 0;
+      color: #ff8494;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+    }
+
+    .submit-button {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      min-height: 44px;
+      margin-top: 1px;
+      padding: 0 13px;
+      border: 1px solid var(--rose);
+      background: rgba(153, 52, 76, .14);
+      color: #f37b8f;
+      cursor: pointer;
+      font-size: 11px;
+      letter-spacing: .08em;
+      transition: background .2s, color .2s, box-shadow .2s;
+    }
+
+    .submit-button:hover:not(:disabled) {
+      background: var(--rose);
+      color: #170b11;
+      box-shadow: 0 0 18px rgba(234, 96, 121, .2);
+    }
+
+    .submit-button:disabled { cursor: progress; opacity: .64; }
+
+    .demo-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 11px 0 0;
+      color: var(--quiet);
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .demo-note strong {
+      flex: 0 0 auto;
+      color: var(--violet);
+      font-family: var(--font);
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 23px;
+      padding-top: 15px;
+      border-top: 1px dashed var(--line-soft);
+    }
+
+    .history-title {
+      color: var(--ink);
+      font-size: 10px;
+      letter-spacing: .04em;
+    }
+
+    .history-soon {
+      color: var(--quiet);
+      font-family: Arial, sans-serif;
+      font-size: 10px;
+      text-align: right;
+    }
+
+    .progress-state {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 18px;
+      margin-top: 12px;
+      color: var(--green);
+      font-size: 9px;
+      letter-spacing: .055em;
+    }
+
+    .progress-state .state-mark { color: var(--rose); }
+
+    .result-card {
+      margin-top: 17px;
+      padding: 15px;
+      border: 1px solid rgba(234, 96, 121, .45);
+      background: rgba(38, 20, 32, .46);
+      animation: reveal .34s ease-out both;
+    }
+
+    .result-card[hidden] { display: none; }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--rose);
+      font-size: 9px;
+      letter-spacing: .08em;
+    }
+
+    .result-score-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin: 9px 0;
+    }
+
+    .result-score {
+      color: #f1ddea;
+      font-size: 35px;
+      font-weight: 600;
+      letter-spacing: -.09em;
+      line-height: 1;
+    }
+
+    .result-score small {
+      color: var(--rose);
+      font-size: 17px;
+    }
+
+    .result-level {
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .result-explain {
+      margin: 0 0 11px;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .finding-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+
+    .finding {
+      padding: 8px;
+      border: 1px solid var(--line-soft);
+      color: var(--ink);
+      font-size: 9px;
+      line-height: 1.4;
+    }
+
+    .finding b {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--violet);
+      font-weight: 500;
+    }
+
+    .visual-panel { min-width: 0; }
+
+    .visual-head,
+    .visual-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 9px;
+      letter-spacing: .08em;
+    }
+
+    .visual-head {
+      justify-content: flex-end;
+      margin-bottom: 10px;
+      color: var(--violet);
+    }
+
+    .eye-state { color: var(--rose); }
+
+    .eye-window {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 480px;
+      overflow: hidden;
+      border: 1px solid rgba(174, 157, 209, .28);
+      background:
+        radial-gradient(ellipse 70% 55% at 50% 50%, rgba(55, 28, 80, .72), rgba(20, 10, 40, .95) 68%, #07060f 100%),
+        repeating-linear-gradient(0deg, transparent 0 3px, rgba(160, 130, 210, .018) 4px);
+      isolation: isolate;
+      box-shadow: inset 0 0 60px rgba(100, 50, 160, .18), inset 0 0 120px rgba(30, 10, 60, .4);
+    }
+
+    /* Corner bracket marker */
+    .eye-window::before {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px dashed rgba(174, 157, 209, .12);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* Vignette overlay */
+    .eye-window::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(5, 4, 14, .55) 100%);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .eye-art {
+      position: relative;
+      z-index: 2;
+      margin: 0;
+      padding: 14px 8px;
+      overflow: hidden;
+      font-family: var(--font);
+      font-size: clamp(7.5px, 1.05vw, 11.5px);
+      font-weight: 500;
+      line-height: 1.18;
+      letter-spacing: -0.04em;
+      white-space: pre;
+      transition: filter .25s;
+    }
+
+    /* Ambient noise: dark muted purple — surrounding area characters */
+    .ambient {
+      color: #2e2640;
+      opacity: .82;
+    }
+
+    /* Eyelid edges: medium violet, slightly bright */
+    .lid {
+      color: #b090d8;
+      text-shadow: 0 0 6px rgba(176, 144, 216, .32);
+    }
+
+    /* Sclera: cool lilac-gray (white of eye area) */
+    .sclera {
+      color: #8a7aaa;
+      text-shadow: 0 0 3px rgba(138, 122, 170, .18);
+    }
+
+    /* Iris: vivid medium purple — dominant color in the image */
+    .iris {
+      color: #c09ee0;
+      text-shadow: 0 0 7px rgba(192, 158, 224, .28);
+    }
+
+    /* Pupil: near-black deep indigo — very dark center */
+    .pupil {
+      color: #110d1a;
+      text-shadow: none;
+    }
+
+    /* Glint: bright white-pink specular reflection */
+    .glint {
+      color: #f0e0ff;
+      text-shadow:
+        0 0 6px rgba(240, 224, 255, .90),
+        0 0 14px rgba(220, 180, 255, .55),
+        0 0 28px rgba(200, 150, 255, .28);
+    }
+
+    .scanline {
+      position: absolute;
+      z-index: 4;
+      inset: -40% 0;
+      pointer-events: none;
+      opacity: .12;
+      background: linear-gradient(
+        to bottom,
+        transparent 46%,
+        rgba(220, 180, 255, .35) 50%,
+        transparent 54%
+      );
+      transform: translateY(-45%);
+    }
+
+    .visual-foot {
+      margin-top: 10px;
+      color: var(--quiet);
+      font-size: 8px;
+    }
+
+    .eye-caption {
+      margin: 22px 0 0;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-style: italic;
+      text-align: center;
+    }
+
+    .eye-caption span { color: var(--rose); }
+
+    .is-scanning .eye-art {
+      filter: brightness(1.55) saturate(1.2);
+      animation: flicker .48s steps(2, end) infinite;
+    }
+
+    .is-scanning .scanline {
+      opacity: .55;
+      animation: sweep 1.1s linear infinite;
+    }
+
+    .is-scanning .eye-state {
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .72; }
+    }
+
+    @keyframes sweep {
+      from { transform: translateY(-45%); }
+      to   { transform: translateY(45%); }
+    }
+
+    @keyframes pulse {
+      50% { opacity: .42; }
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1100px) {
+      .eye-art { font-size: clamp(7px, 1.2vw, 11.5px); }
+    }
+
+    @media (max-width: 850px) {
+      .main-grid { grid-template-columns: 1fr; gap: 34px; }
+      .intro { max-width: 590px; }
+      .visual-panel { width: min(100%, 600px); justify-self: center; }
+      .eye-window { min-height: 380px; }
+      .eye-art { font-size: clamp(6px, 1.8vw, 10px); }
+    }
+
+    @media (max-width: 520px) {
+      .page-shell { width: calc(100% - 24px); margin-top: 13px; }
+      .terminal { padding: 19px 16px 16px; }
+      .topbar { align-items: flex-start; }
+      .wordmark { font-size: 14px; }
+      .descriptor { font-size: 7px; }
+      .system-status { padding: 7px; font-size: 7px; }
+      .main-grid { padding: 31px 0 22px; gap: 28px; }
+      h1 { font-size: clamp(25px, 8vw, 34px); }
+      .eye-window { min-height: 260px; }
+      .eye-art { font-size: clamp(5.5px, 2.2vw, 8px); }
+      .history-row { align-items: flex-start; }
+      .finding-list { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <section class="terminal" aria-labelledby="page-title">
+      <header class="topbar">
+        <div class="identity">
+          <div class="brand-mark" aria-hidden="true">r.</div>
+          <div>
+            <div class="wordmark">RASTRO<span>_</span></div>
+            <div class="descriptor">SCANNER DE PADRÕES ESCUROS</div>
+          </div>
+        </div>
+        <div class="system-status"><span class="status-dot"></span><span id="systemStatus">SISTEMA PRONTO</span></div>
+      </header>
+
+      <div class="main-grid">
+        <section class="scanner-copy">
+          <h1 id="page-title">LEIA ENTRE<br><em>AS LINHAS.</em></h1>
+          <p class="intro">Investigue sinais de pressão e padrões de manipulação escondidos na experiência de uma página.</p>
+
+          <form id="scanForm" novalidate>
+            <p class="terminal-prompt">operador@rastro:~$ scan --url</p>
+            <label class="field-label" for="urlInput">URL PARA INSPEÇÃO</label>
+            <div class="input-wrap">
+              <span class="input-caret" aria-hidden="true">&gt;</span>
+              <input id="urlInput" name="url" type="text" inputmode="url" autocomplete="url" autocapitalize="none" spellcheck="false" placeholder="https://exemplo.com" aria-describedby="fieldError demoNote">
+            </div>
+            <p class="field-error" id="fieldError" aria-live="polite"></p>
+            <button class="submit-button" id="submitButton" type="submit">
+              <span id="buttonLabel">ANALISAR PÁGINA</span><span aria-hidden="true">↗</span>
+            </button>
+            <p class="demo-note" id="demoNote"><strong>[ DEMO ]</strong><span>Nenhum site será acessado nesta prévia.</span></p>
+            <div class="progress-state" id="progressState" aria-live="polite"><span class="state-mark">[ OK ]</span><span id="progressText">Aguardando uma URL...</span></div>
+          </form>
+
+          <div class="result-card" id="resultCard" hidden aria-live="polite">
+            <div class="result-head"><span>RESULTADO FICTÍCIO</span><span>ANÁLISE SIMULADA</span></div>
+            <div class="result-score-row"><div class="result-score">72<small>%</small></div><div class="result-level">risco contextual<br>elevado · exemplo</div></div>
+            <p class="result-explain">Este score é ilustrativo. Uma análise real precisaria considerar o conteúdo e o contexto da página.</p>
+            <div class="finding-list">
+              <div class="finding"><b>Falsa escassez</b>“Restam apenas 2 unidades”</div>
+              <div class="finding"><b>Indução à culpa</b>“Não, prefiro perder a oferta”</div>
+            </div>
+          </div>
+
+          <div class="history-row">
+            <span class="history-title">RELATÓRIOS HISTÓRICOS</span>
+            <span class="history-soon">Em breve: login e download</span>
+          </div>
+        </section>
+
+        <section class="visual-panel" aria-label="Arte visual do scanner">
+          <div class="visual-head">
+            <span class="eye-state" id="eyeState">EM ESPERA</span>
+          </div>
+          <div class="eye-window" id="eyeWindow">
+            <pre class="eye-art" role="img" aria-label="Olho digital desenhado com caracteres ASCII"><span class="ambient">       0              /       1                            :                    </span>
+<span class="ambient">              ;:             1/0   :            ;    :        ;         x       </span>
+<span class="ambient">                       1   0  ;            1       :        ; ;    :0           </span>
+<span class="ambient">                0      x0       x   :              :  /           ;    : 1      </span>
+<span class="ambient">               0   : /;       x 0  </span><span class="lid">==---=~--=</span><span class="ambient">    /    x 11:     0               </span>
+<span class="ambient">              0             </span><span class="lid">-==--=-~===--==~==-==--=</span><span class="ambient">    1        /      11    x </span>
+<span class="ambient">      : x       ;    / </span><span class="lid">=---==-</span><span class="sclera"> 1: :i:</span><span class="iris">x+OX+O0o@</span><span class="sclera">.1,.</span><span class="lid">==-==-=</span><span class="ambient">/  /1x     x           </span>
+<span class="ambient"> 1;                 </span><span class="lid">~--==</span><span class="sclera">i:1i.11:</span><span class="iris">+oxO+@Ox*0@@o++*X</span><span class="sclera">:.: ;</span><span class="lid">-=--~</span><span class="ambient">          : ;;      </span>
+<span class="ambient">           0     </span><span class="lid">==-~</span><span class="sclera">.i;.111i..</span><span class="iris">XoO0*53XG22rr3XSxXO0*</span><span class="sclera">1;,;:; </span><span class="lid">-~=~</span><span class="ambient">  ;x             </span>
+<span class="ambient">:       /x  //</span><span class="lid">-==-</span><span class="sclera">1.:1;ii.:1i;</span><span class="iris">0@+53rr3#3hM5#r22GXGo@X</span><span class="sclera">i :1.;.1i</span><span class="lid">===-</span><span class="ambient">1  0  :xx    0</span>
+<span class="ambient">            </span><span class="lid">--~</span><span class="sclera">:...:.;ii11i:1</span><span class="iris">@X03MhhGh#h</span><span class="pupil">wwn</span><span class="iris">5rS2Xh5GX**</span><span class="sclera">.;:.:., i.i</span><span class="lid">=~=</span><span class="ambient">;           </span>
+<span class="ambient">         1</span><span class="lid">-=~</span><span class="sclera">:.:.i 1..1.;.,1</span><span class="iris">X00G3XMhG</span><span class="pupil">#wwm##n#m</span><span class="iris">#X5MMSox*</span><span class="sclera">i. ., ; ,.,:</span><span class="lid">===</span><span class="ambient">          </span>
+<span class="ambient">        </span><span class="lid">=-=</span><span class="sclera">..iiii;.; ..:i:.</span><span class="iris">xO0MGGrrG</span><span class="pupil">#m</span><span class="glint">**</span><span class="pupil">w##w#wn</span><span class="iris">S332SS0@O</span><span class="sclera">...::,i1.:.i </span><span class="lid">=-=</span><span class="ambient">:       </span>
+<span class="ambient">   :    </span><span class="lid">-</span><span class="sclera">1:i:i1...: i;,ii. </span><span class="iris">x*+GMXMG</span><span class="pupil">nww</span><span class="glint">*</span><span class="pupil">n#mm#w#wn</span><span class="iris">MXXM#x*O</span><span class="sclera">i iiii;i:,1;i i</span><span class="lid">=</span><span class="ambient">        </span>
+<span class="ambient">       </span><span class="sclera">..1i ;.;i 1.i,ii :i:</span><span class="iris">ox2X3GSM</span><span class="pupil">w#mnwnn#mmmnw</span><span class="iris">rhGhrh+x</span><span class="sclera">.i.., ; ;1:i.1i 11</span><span class="ambient">1   0 </span>
+<span class="ambient">0 /0    </span><span class="lid">~</span><span class="sclera">...    ..iii :1,;1</span><span class="iris">**xGSSM5</span><span class="pupil">mnmm#nnnwnmww</span><span class="iris">523#2+*O</span><span class="sclera">iii.,;.,  1.,.,</span><span class="lid">-</span><span class="ambient">        </span>
+<span class="ambient">        </span><span class="lid">-=-</span><span class="sclera">,1...,.;:,,:,:.1</span><span class="iris">Ox@S#55Xh</span><span class="pupil">mwmw#nn#m##</span><span class="iris">r23#hhoxx</span><span class="sclera">:i;:.;..11i.i</span><span class="lid">~-=</span><span class="ambient">        </span>
+<span class="ambient">    1     </span><span class="lid">-=-</span><span class="sclera">,;,:1,.i:.: ..,</span><span class="iris">0xxhM253#</span><span class="pupil">wwnmw#m#n</span><span class="iris">r5MXr2*X+</span><span class="sclera">;.. ;.1i,.;;</span><span class="lid">===</span><span class="ambient">  0x      </span>
+<span class="ambient">        ;:  </span><span class="lid">===</span><span class="sclera">i.,1,1:.;.i..,</span><span class="iris">@oOXM#h5Gr#</span><span class="pupil">m#m</span><span class="iris">rh3555S#XxO</span><span class="sclera">: ii .,..1.</span><span class="lid">==-</span><span class="ambient">            </span>
+<span class="ambient">             :</span><span class="lid">--=~</span><span class="sclera">.1.:;;; ;.,;</span><span class="iris">@xO#MS2#3X2Xh223#r5X+@O</span><span class="sclera">1;i,:: :i</span><span class="lid">-===</span><span class="ambient">              </span>
+<span class="ambient">           :     </span><span class="lid">=-=-</span><span class="sclera">i.,,:..  1</span><span class="iris">o@*0+XX3Mh3332Xh+x+OO</span><span class="sclera"> i1.:..</span><span class="lid">==-=</span><span class="ambient">     /:   1  :   </span>
+<span class="ambient"> /       x          </span><span class="lid">=~-==</span><span class="sclera">:. ;,,.;</span><span class="iris">xxX+x@X*ooxXX*Xo@</span><span class="sclera"> i,1.</span><span class="lid">---==</span><span class="ambient">         1          </span>
+<span class="ambient">          ;   0/   0x  </span><span class="lid">=-=----</span><span class="sclera">i i;i.;</span><span class="iris">+o+x@oO+0</span><span class="sclera">..:.</span><span class="lid">====~~=</span><span class="ambient">    :   0    0  /      </span>
+<span class="ambient">  x     ;                   </span><span class="lid">=-=====-=-===-~-=-======</span><span class="ambient">    /:x /    x   0   /      </span>
+<span class="ambient">  0         0      x       1 :     </span><span class="lid">==~=~-==~-</span><span class="ambient">   :    /  ;          : :  :       </span>
+<span class="ambient">:       x   1             0           x    :      /;             1      :0      </span>
+<span class="ambient">;                0       ;0  ;   0/   1  1 1 1          ;:  ;  : 0              </span>
+<span class="ambient">      1x  1                              1            / / x         /       /   </span>
+<span class="ambient">  /    /0 0   0  : /                             1       :  0 ;  /;             </span></pre>
+            <div class="scanline" aria-hidden="true"></div>
+          </div>
+          <div class="visual-foot"><span>IRIS / ACTIVE</span><span>DOM · TEXTO · CONTEXTO</span></div>
+          <p class="eye-caption"><span>“</span> O padrão aparece nos detalhes. <span>”</span></p>
+        </section>
+      </div>
+
+
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById("scanForm");
+    const input = document.getElementById("urlInput");
+    const error = document.getElementById("fieldError");
+    const button = document.getElementById("submitButton");
+    const buttonLabel = document.getElementById("buttonLabel");
+    const progressText = document.getElementById("progressText");
+    const progressState = document.getElementById("progressState");
+    const resultCard = document.getElementById("resultCard");
+    const eyeWindow = document.getElementById("eyeWindow");
+    const eyeState = document.getElementById("eyeState");
+    const systemStatus = document.getElementById("systemStatus");
+
+    function validDemoUrl(value) {
+      let candidate = value.trim();
+      if (!candidate) return null;
+      if (!/^https?:\/\//i.test(candidate)) candidate = "https://" + candidate;
+      try {
+        const parsed = new URL(candidate);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+        if (!parsed.hostname || (!parsed.hostname.includes(".") && parsed.hostname !== "localhost")) return null;
+        return parsed.href;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    input.addEventListener("input", function () {
+      error.textContent = "";
+      input.removeAttribute("aria-invalid");
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const normalized = validDemoUrl(input.value);
+      if (!normalized) {
+        error.textContent = "Digite uma URL válida, por exemplo: https://exemplo.com";
+        input.setAttribute("aria-invalid", "true");
+        input.focus();
+        return;
+      }
+
+      input.value = normalized;
+      error.textContent = "";
+      resultCard.hidden = true;
+      input.disabled = true;
+      button.disabled = true;
+      buttonLabel.textContent = "ANALISANDO...";
+      progressState.querySelector(".state-mark").textContent = "[ .. ]";
+      eyeWindow.classList.add("is-scanning");
+      eyeState.textContent = "ANALISANDO";
+      systemStatus.textContent = "VARREDURA EM CURSO";
+
+      const stages = [
+        "Analisando URL (demonstração)...",
+        "Simulando extração da estrutura...",
+        "Detectando microgatilhos de exemplo...",
+        "Calculando score ilustrativo..."
+      ];
+
+      stages.forEach(function (stage, index) {
+        window.setTimeout(function () {
+          progressText.textContent = stage;
+        }, index * 820);
+      });
+
+      window.setTimeout(function () {
+        eyeWindow.classList.remove("is-scanning");
+        eyeState.textContent = "LEITURA CONCLUÍDA";
+        systemStatus.textContent = "DEMO CONCLUÍDA";
+        progressState.querySelector(".state-mark").textContent = "[ OK ]";
+        progressText.textContent = "Demonstração concluída. Nenhum site foi acessado.";
+        buttonLabel.textContent = "ANALISAR NOVAMENTE";
+        input.disabled = false;
+        button.disabled = false;
+        resultCard.hidden = false;
+      }, 3500);
+    });
+  </script>
+</body>
+</html>
+

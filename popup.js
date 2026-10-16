@@ -1,29 +1,26 @@
-async function Buscar(){
-const [aba] = await chrome.tabs.query({active :true , currentWindow: true});    
-chrome.tabs.sendMessage(
-    aba.id,
-    {
-        action: "BuscarDados"
-    },
-    (response)=>{
-        const elementoTitulo= document.getElementById("tituloPag");
-        if(chrome.runtime.lastError){
-            console.error("não foi possivel acessar esta aba", chrome.runtime.lastError.message)
-            return;
-        }
-        if(!response){
-         console.log("a aba não retornou nada")
-          return;
-        }
-        if(response && response.title){
-            elementoTitulo.innerText = response.title;
-        }
-        else{
-            elementoTitulo.innerText = "Nenhum Titulo encontrado";
-        }
-        console.log(response.title)
-    }
-);
+async function analisarPagina() {
+  // Pega a aba ativa atual
+  let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+  // Executa uma função dentro do contexto da página web aberta
+  chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: obterDadosDaPagina
+  }, (resultados) => {
+    if (resultados && resultados[0]) {
+      const dados = resultados[0].result;
+      document.getElementById('titulo').innerText = `Título: ${dados.titulo}`;
+      document.getElementById('paragrafos').innerText = `Parágrafos: ${dados.qtdParagrafos}`;
+    }
+  });
 }
-Buscar();
+
+// Esta função roda DENTRO da página web do usuário
+function obterDadosDaPagina() {
+  return {
+    titulo: document.title,
+    qtdParagrafos: document.querySelectorAll('p').length
+  };
+}
+
+analisarPagina();
