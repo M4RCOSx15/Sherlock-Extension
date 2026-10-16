@@ -1,59 +1,79 @@
 # RASTRO
 
-O **RASTRO** é uma ferramenta de auditoria de dark patterns web com foco no consumidor e no analista de design ético. Inspeciona o DOM e o texto visível de páginas públicas em busca de sinais de manipulação de UX.
+Auditor de dark patterns em páginas públicas. Você cola uma URL, o RASTRO abre a página num Chromium isolado, lê o que renderizou e devolve os sinais encontrados: evidências, gravidade e um score de risco contextual.
 
-## Fase Atual: MVP V1 🚀
-A base determinística do MVP e o gate de egress local foram concluídos. A etapa semântica opcional agora aceita Gemini 3.8 Flash e mantém compatibilidade com Qwen. A chamada direta ao Gemini foi validada; ainda falta configurar uma chave local e confirmar o fluxo completo dentro do Docker.
+## Como funciona
 
-O sistema conta com:
-- **Interface Terminal/Cyber:** Uma interface interativa nativa (sem frameworks JS pesados) em HTML/CSS baunilha, servida pela própria API.
-- **FastAPI Backend:** Servidor Python extremamente rápido que gerencia requisições e isola erros.
-- **Playwright Headless Scraper:** Motor que carrega o DOM com um identificador próprio. O RASTRO não tenta contornar proteções anti-bot.
-- **Filtro de destino (defesa em profundidade):** valida a URL inicial e intercepta requests HTTP(S) do navegador para bloquear destinos não públicos. Isso ainda não substitui isolamento de rede contra redirects e DNS rebinding.
-- **Scanner Determinístico:** Motor analítico rodando em cima de `BeautifulSoup4` e expressões regulares para quantificar o abuso de UX e retornar um score.
-- **LLM opcional (Gemini/Qwen):** Complementa as regras quando `LLM_ENABLED=true`. Envia texto visível limitado, valida as citações retornadas e mantém o modo determinístico como fallback. O score é heurístico, não uma probabilidade calibrada.
+1. Você manda a URL pela interface.
+2. O backend abre a página com Playwright e espera o DOM estabilizar (mínimo de 2s, teto de 3.5s configurável).
+3. Regras determinísticas procuram padrões no texto e nos elementos renderizados: urgência, escassez, confirmshaming, ancoragem de preço, pré-seleção, overlay e assimetria de consentimento.
+4. Se o Gemini estiver ligado, roda uma análise semântica por cima. Se falhar ou não estiver configurado, o resultado determinístico volta normal.
 
-## Pré-requisitos
-- **Sistema Operacional:** Funciona em Windows, macOS ou Linux.
-- **Python:** 3.10 ou superior.
+O score é heurístico — soma pontos por severidade (5/10/20/30, até 100). Não é probabilidade nem prova de intenção; serve pra indicar o que vale revisar.
 
-## Como Executar Localmente
-O sistema foi configurado para resolver conflitos clássicos de I/O de loop do Windows nativamente por meio do `run_server.py`.
+## Stack
 
-1. Crie seu ambiente virtual (caso ainda não exista) e ative-o:
-   ```powershell
-   python -m venv .venv
-   .venv\Scripts\activate
-   ```
-2. Instale as dependências e o navegador do Playwright:
-   ```powershell
-   pip install -r backend/requirements.txt
-   playwright install chromium
-   ```
-3. Inicie a aplicação de forma segura através do script base:
-   ```powershell
-   python run_server.py
-   ```
-4. Acesse:
-- **Frontend UI**: [http://localhost:8000](http://localhost:8000)
-- **API Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Frontend:** HTML/CSS/JS puro, servido pela própria API. Histórico de até 10 análises fica no `localStorage` e os relatórios Markdown são gerados no navegador — nada disso passa pelo servidor.
+- **Backend:** Python + FastAPI.
+- **Scraping:** Playwright/Chromium.
+- **LLM (opcional):** Gemini (ou Qwen), recebe só um recorte limitado de texto — nunca o HTML inteiro.
+- **Isolamento:** Docker Compose com proxy de saída. A API não tem saída direta pra internet e só expõe porta em `127.0.0.1`.
 
-O servidor de desenvolvimento escuta somente em `127.0.0.1` e não tem isolamento de egress no processo local. A configuração Docker abaixo acrescenta essa barreira, mas ainda depende dos critérios de validação operacional antes de qualquer exposição pública.
+## Rodando
 
-## Execução isolada com Docker (Sprint 12)
-
-A configuração Compose coloca o Chromium e as chamadas opcionais ao provedor LLM atrás de um proxy de saída controlado. O gate local foi validado; deploy público continua fora do escopo.
+Precisa do Docker Desktop aberto. Na raiz do projeto:
 
 ```powershell
-docker compose up --build
+docker compose up -d --build api
+docker compose ps
 ```
 
-Abra `http://127.0.0.1:8000`. O Compose publica a API somente no loopback do host. Se a sub-rede Docker `172.29.254.0/29` já estiver em uso, altere em conjunto os endereços fixos de `compose.yaml`, `docker/api-entrypoint.sh` e `docker/egress/squid.conf`.
+Espera `api` e `egress-proxy` ficarem `healthy` e abre:
 
-Para habilitar Gemini 3.8 Flash no Docker, configure LLM_ENABLED=true, LLM_PROVIDER=gemini, LLM_API_KEY, LLM_MODEL=gemini-3.8-flash e a base URL generativelanguage.googleapis.com/v1beta/openai/ no .env local. O padrão aguarda 1.800 ms após DOMContentLoaded para SPAs renderizarem texto e envia até 12.000 caracteres ao Gemini; SCRAPER_RENDER_WAIT_MS pode ser ajustado entre 0 e 5.000 ms. LLM_TIMEOUT_SECONDS=30 dá mais tempo à resposta do modelo. Depois execute docker compose up -d --build api. A faixa gratuita do Google pode usar entradas e respostas para melhorar os produtos; envie somente conteúdo público e não sensível. Qwen via DashScope continua compatível. Sem essa configuração, o scanner permanece determinístico.
+- App: <http://127.0.0.1:8000/>
+- Swagger: <http://127.0.0.1:8000/docs>
 
-## Regras e Arquitetura do Projeto
-Para detalhes sobre decisões de engenharia, arquitetura e as microsprints planejadas para o RASTRO, consulte a pasta `/docs/antigravity`.
+Comandos do dia a dia:
 
----
-*Projeto em evolução constante visando transparência no e-commerce digital.*
+```powershell
+docker compose logs --tail=100 api   # ver logs
+docker compose restart               # reinicia sem rebuild
+docker compose down                  # para e remove os containers
+```
+
+Mudou código? Roda `docker compose up -d --build api` de novo. Mudou o front? `Ctrl+F5` na página pra limpar cache.
+
+## Gemini (opcional)
+
+Vem desligado por padrão. Pra ativar, copia o `.env.example` pra `.env` e ajusta:
+
+```dotenv
+LLM_ENABLED=true
+LLM_API_KEY=sua_chave
+```
+
+Reconstroi a API depois. A chave fica só no backend — não aparece no front, nos relatórios nem nos logs. Setup completo em [`docs/antigravity/CREDENCIAIS-E-SETUP.md`](docs/antigravity/CREDENCIAIS-E-SETUP.md).
+
+## Sem Docker
+
+Dá pra rodar em Python puro, mas sem o isolamento de rede do Compose — evita analisar URL que você não controla:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r backend/requirements.txt
+playwright install chromium
+python run_server.py
+```
+
+(O `run_server.py` existe porque o Uvicorn + Playwright brigam com o loop de eventos do Windows — não chame o uvicorn direto.)
+
+## Docs
+
+- [`docs/antigravity/STATE.md`](docs/antigravity/STATE.md) — onde o projeto tá e o que falta validar
+- [`docs/antigravity/MICROSPRINTS.md`](docs/antigravity/MICROSPRINTS.md) — histórico de sprints e critérios de aceite
+- [`docs/api-contract.md`](docs/api-contract.md) — contrato da API
+
+## Status
+
+MVP local validado. Deploy público, contas e sincronização de relatórios ainda não existem — são fases futuras com escopo próprio.
