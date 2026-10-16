@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Validação local das microsprints 14.16–14.21; não faz chamadas de rede.
+"""Validação local das microsprints 14.16–14.22; não faz chamadas de rede.
 
 Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.16: timer só gera urgência alta quando visível e com valor temporal.
@@ -8,6 +8,7 @@ Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.19: escassez usa somente texto renderizado (inclusive abaixo da dobra).
   - 14.20: confirmshaming usa a mesma lista renderizada (links inclusos).
   - 14.21: ancoragem exige elemento de preço antigo renderizado.
+  - 14.22: texto estacionado fora da tela não alimenta nenhuma regra.
 
 Rodar com: python backend/test_rendered_evidence.py
 """
@@ -307,6 +308,43 @@ async def main() -> None:
                 f"Mesmo valor repetido gerou ancoragem: {findings!r}"
             )
             print("[OK] 14.21 mesmo valor repetido continua sem achado")
+
+            # ── 14.22: texto estacionado fora da tela não gera achado ──
+            for descricao, html, regra in (
+                ("escassez à esquerda da tela",
+                 '<p style="position:absolute;left:-9999px">Restam 2 unidades</p>',
+                 "fake_scarcity"),
+                ("escassez acima da tela",
+                 '<p style="position:absolute;top:-9999px">Restam 2 unidades</p>',
+                 "fake_scarcity"),
+                ("recusa fora da tela",
+                 '<a href="#" style="position:absolute;left:-9999px">Não, obrigado</a>',
+                 "confirmshaming"),
+                ("preço antigo fora da tela",
+                 '<div style="position:absolute;left:-9999px">'
+                 '<del>R$ 99,90</del> R$ 79,90</div>',
+                 "price_anchoring"),
+            ):
+                await page.set_content(f"<main>{html}</main>")
+                findings = await analyze_page(page)
+                assert regra not in ids(findings), (
+                    f"Texto fora da tela gerou {regra}: {findings!r}"
+                )
+            print("[OK] 14.22 texto totalmente fora da tela não gera achado")
+
+            # Parcialmente visível continua elegível.
+            await page.set_content("""
+              <main>
+                <p style="position:absolute;left:-50px;width:200px">
+                  Restam 2 unidades
+                </p>
+              </main>
+            """)
+            findings = await analyze_page(page)
+            assert "fake_scarcity" in ids(findings), (
+                f"Texto parcialmente visível ignorado: {findings!r}"
+            )
+            print("[OK] 14.22 texto parcialmente visível continua elegível")
         finally:
             await browser.close()
 

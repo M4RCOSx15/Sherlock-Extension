@@ -347,7 +347,9 @@ async def collect_rendered_price_contexts(page: Page) -> list[dict[str, object]]
                   style.visibility === 'collapse' || Number(style.opacity) <= 0.05) return false;
             }
             const rect = element.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
+            // Fully offscreen positioning (e.g. left:-9999px) hides text from
+            // users; below-the-fold content keeps positive bounds and stays eligible.
+            return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0;
           };
           const clean = (value) => (value || '').replace(/\\s+/g, ' ').trim();
           const evidence = [];
@@ -407,6 +409,9 @@ async def collect_rendered_text_candidates(page: Page) -> list[str]:
             if (!text || text.length > 200) continue;
             const rect = element.getBoundingClientRect();
             if (!(rect.width > 0 && rect.height > 0) && element.getClientRects().length === 0) continue;
+            // Elements parked entirely in negative space are not rendered for the
+            // user; below-the-fold content keeps positive bounds and stays eligible.
+            if (rect.right <= 0 || rect.bottom <= 0) continue;
             const key = text.toLocaleLowerCase();
             if (seen.has(key)) continue;
             seen.add(key);

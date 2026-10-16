@@ -1,7 +1,7 @@
 # RASTRO — Handoff de Sessão
 
 ## Resumo Executivo
-O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.21. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.21 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
+O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.22. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.22 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
 
 **Checkpoint Git:** em 2026-10-16, o README reescrito foi enviado a `main` (`da5885f`) e `develop` (`13041a8`), e o estado completo do MVP foi commitado na `develop` (`d57d813`). O working tree da `main` segue com as mesmas alterações não commitadas por escolha do usuário; a `develop` preserva o histórico antigo da extensão por decisão dele.
 
@@ -148,6 +148,12 @@ Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e den
 A regra de ancoragem não varre mais o HTML estático: o scraper devolve `rendered_price_evidence`, uma lista curta de elementos de preço antigo efetivamente renderizados (mesmos seletores de antes) com os blocos ancestrais compactos de até 4 níveis/180 caracteres que a regra já usava. A verificação de ocultação é a mesma das demais coletas, mas não exige posição na viewport — conteúdo abaixo da dobra segue elegível. O critério de valores distintos da 14.13 e o fallback estático fora do navegador foram preservados. O contrato da API não mudou.
 
 Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container reconstruído: `del`+preço atual abaixo da dobra gera achado; `display:none`, `visibility:hidden`, `aria-hidden` ancestral e `del` oculto com preço visível não geram; `R$ 79,99` repetido continua sem achado. Com isso, as 7 regras determinísticas consomem somente sinais confirmados como renderizados pelo navegador.
+
+## Microsprint 14.22 concluída — Texto estacionado fora da tela não pontua
+
+Elementos posicionados inteiramente em espaço negativo (`position:absolute; left:-9999px`, `top:-9999px`) têm geometria e `innerText`, mas o usuário nunca os vê. As coletas de candidatos de texto e de contexto de preço agora descartam elementos com `rect.right <= 0` ou `rect.bottom <= 0`. Conteúdo abaixo da dobra mantém limites positivos e continua elegível; parcialmente fora da tela também. As coletas que já exigem interseção com a viewport (timer, checkbox, overlay, consentimento) não mudaram.
+
+Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container reconstruído: escassez à esquerda/acima da tela, recusa fora da tela e bloco de preço antigo fora da tela não geram achado; elemento parcialmente visível continua elegível.
 
 ## Microsprint 13.2 concluída — assimetria em consentimento
 

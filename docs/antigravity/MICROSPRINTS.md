@@ -253,6 +253,14 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Critérios para concluir**: `del`/`price-old` renderizado com preço distinto no mesmo bloco, inclusive abaixo da dobra, gera achado; elemento oculto por estilo/`hidden`/`aria-hidden` não gera; `del` oculto com preço atual visível não gera; valores repetidos continuam sem achado (regressão 14.13).
 - **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: bloco `del`+preço atual abaixo da dobra gera achado; quatro variantes ocultas não geram; `R$ 79,99` repetido não gera. Regressões de overlay e routing seguem passando. A conferência em página real continua opcional para o usuário.
 
+### [x] Microsprint 14.22 — Ignorar texto estacionado fora da tela
+- **Motivo**: elementos renderizados posicionados inteiramente em espaço negativo (ex.: `position:absolute; left:-9999px`) mantêm geometria e `innerText`, então ainda alimentavam as regras de escassez, confirmshaming e ancoragem — embora o usuário nunca os veja.
+- **Escopo**: nas coletas de candidatos de texto e de contexto de preço, descartar elementos cujo retângulo termina fora da área visível em coordenadas negativas (`rect.right <= 0` ou `rect.bottom <= 0`). Conteúdo abaixo da dobra mantém limites positivos e continua elegível, conforme definido na 14.19. Elementos parcialmente fora da tela seguem elegíveis.
+- **Privacidade e segurança**: nenhum dado novo é coletado; os limites existentes se mantêm e nada é enviado ao LLM, registrado ou persistido.
+- **Fora do escopo**: outras formas de ocultação visual (recorte por `clip-path`, `text-indent` negativo, camadas cobertas por outros elementos), mudança nas coletas que já exigem interseção com a viewport (timer, checkbox, overlay, consentimento) ou alteração de score.
+- **Critérios para concluir**: texto à esquerda/acima da tela não gera achado de escassez, confirmshaming nem ancoragem; conteúdo abaixo da dobra e parcialmente fora da tela continuam elegíveis; demais regras mantêm o fluxo.
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: quatro casos de texto estacionado fora da tela não geram achado e o elemento parcialmente visível continua elegível. As demais suítes locais seguem passando. A conferência em página real continua opcional para o usuário.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)
