@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Validação local das microsprints 14.16–14.22; não faz chamadas de rede.
+"""Validação local das microsprints 14.16–14.23; não faz chamadas de rede.
 
 Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.16: timer só gera urgência alta quando visível e com valor temporal.
@@ -9,6 +9,7 @@ Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.20: confirmshaming usa a mesma lista renderizada (links inclusos).
   - 14.21: ancoragem exige elemento de preço antigo renderizado.
   - 14.22: texto estacionado fora da tela não alimenta nenhuma regra.
+  - 14.23: urgência textual usa candidatos renderizados, não o innerText cru.
 
 Rodar com: python backend/test_rendered_evidence.py
 """
@@ -345,6 +346,41 @@ async def main() -> None:
                 f"Texto parcialmente visível ignorado: {findings!r}"
             )
             print("[OK] 14.22 texto parcialmente visível continua elegível")
+
+            # ── 14.23: urgência textual também exige texto renderizado ──
+            await page.set_content("""
+              <main>
+                <p>Página neutra</p>
+                <p style="position:absolute;left:-9999px">Corra!</p>
+              </main>
+            """)
+            findings = await analyze_page(page)
+            assert "fake_urgency" not in ids(findings), (
+                f"Urgência fora da tela gerou achado: {findings!r}"
+            )
+            print("[OK] 14.23 urgência fora da tela não gera achado")
+
+            await page.set_content("""
+              <main>
+                <p>Página neutra</p>
+                <p style="display:none">Corra!</p>
+              </main>
+            """)
+            findings = await analyze_page(page)
+            assert "fake_urgency" not in ids(findings), (
+                f"Urgência oculta gerou achado: {findings!r}"
+            )
+            print("[OK] 14.23 urgência oculta não gera achado")
+
+            await page.set_content("""
+              <main><p>Corra para aproveitar!</p></main>
+            """)
+            findings = await analyze_page(page)
+            urgency = [f for f in findings if f.id == "fake_urgency"]
+            assert len(urgency) == 1 and urgency[0].severity == "medium", (
+                f"Urgência renderizada não gerou achado médio: {findings!r}"
+            )
+            print("[OK] 14.23 urgência renderizada continua gerando achado médio")
         finally:
             await browser.close()
 

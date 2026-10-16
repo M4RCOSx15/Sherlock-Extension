@@ -261,6 +261,14 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Critérios para concluir**: texto à esquerda/acima da tela não gera achado de escassez, confirmshaming nem ancoragem; conteúdo abaixo da dobra e parcialmente fora da tela continuam elegíveis; demais regras mantêm o fluxo.
 - **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: quatro casos de texto estacionado fora da tela não geram achado e o elemento parcialmente visível continua elegível. As demais suítes locais seguem passando. A conferência em página real continua opcional para o usuário.
 
+### [x] Microsprint 14.23 — Urgência textual só em texto renderizado
+- **Motivo**: a variante textual de urgência ainda varria o `body.innerText` completo, que inclui texto posicionado fora da tela e oculto por CSS — o último caminho de regra a consumir texto bruto em vez de candidatos renderizados.
+- **Escopo**: no fluxo com navegador, a regra de urgência textual passa a avaliar `rendered_text_candidates` (mesma lista das regras de escassez e confirmshaming) em vez do `innerText` integral. O achado de timer visível de severidade alta e o fallback ao texto completo fora do fluxo de navegador são preservados.
+- **Privacidade e segurança**: reutiliza a lista já coletada em memória; nada novo é enviado ao LLM, registrado ou persistido.
+- **Fora do escopo**: alterar o léxico de urgência, o sinal de timer, o score ou a coleta de candidatos.
+- **Critérios para concluir**: frase de urgência em elemento oculto ou estacionado fora da tela não gera achado; frase renderizada continua gerando urgência média; timer visível segue gerando urgência alta.
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: “Corra!” fora da tela e oculto não geram achado; “Corra para aproveitar!” renderizado gera urgência média; os casos de timer da 14.16 seguem passando. A conferência em página real continua opcional para o usuário.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)

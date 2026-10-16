@@ -259,6 +259,7 @@ def _check_fake_urgency(
     html: str,
     text: str,
     visible_countdown_evidence: list[str] | None = None,
+    rendered_text_candidates: list[str] | None = None,
 ) -> list[ScanFinding]:
     findings: list[ScanFinding] = []
 
@@ -278,15 +279,25 @@ def _check_fake_urgency(
 
     # Textual urgency remains medium severity; isolated words such as
     # "timer" or "countdown" are not persuasive evidence by themselves.
+    # In the browser flow, candidates are rendered elements only — text parked
+    # offscreen or hidden by CSS cannot feed this rule. Outside the browser
+    # flow, fall back to the full captured text.
     if not findings:
-        evidence = _first_match(_URGENCY_RE, text)
-        if evidence:
-            findings.append(ScanFinding(
-                id="fake_urgency",
-                type="Urgência fabricada",
-                severity="medium",
-                evidence=f'"{evidence}"',
-            ))
+        sources = (
+            rendered_text_candidates
+            if rendered_text_candidates is not None
+            else [text]
+        )
+        for candidate in sources:
+            evidence = _first_match(_URGENCY_RE, candidate)
+            if evidence:
+                findings.append(ScanFinding(
+                    id="fake_urgency",
+                    type="Urgência fabricada",
+                    severity="medium",
+                    evidence=f'"{evidence}"',
+                ))
+                break
     return findings
 
 
@@ -688,7 +699,8 @@ def analyze(
             marcados no estado atual e avaliados pela regra de opt-in de marketing.
         rendered_text_candidates: textos curtos extraídos pelo navegador de
             elementos efetivamente renderizados, incluindo conteúdo abaixo da
-            dobra. Alimenta as regras textuais (escassez, confirmshaming).
+            dobra. Alimenta as regras textuais (escassez, confirmshaming,
+            urgência textual).
         rendered_price_contexts: textos de elementos de preço antigo renderizados
             com os blocos ancestrais compactos, alimentando a ancoragem.
 
@@ -703,7 +715,9 @@ def analyze(
             elif rule_fn is _check_consent_asymmetry:
                 all_findings.extend(rule_fn(html, text, consent_choice_evidence))
             elif rule_fn is _check_fake_urgency:
-                all_findings.extend(rule_fn(html, text, visible_countdown_evidence))
+                all_findings.extend(rule_fn(
+                    html, text, visible_countdown_evidence, rendered_text_candidates
+                ))
             elif rule_fn is _check_hidden_preselection:
                 all_findings.extend(rule_fn(html, text, visible_preselection_evidence))
             elif rule_fn is _check_fake_scarcity:
