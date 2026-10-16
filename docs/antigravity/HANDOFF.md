@@ -1,7 +1,7 @@
 # RASTRO — Handoff de Sessão
 
 ## Resumo Executivo
-O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.19. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os 13 casos das microsprints 14.16–14.19 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
+O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.20. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.20 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
 
 **Checkpoint Git:** em 2026-10-16, o README reescrito foi enviado a `main` (`da5885f`) e `develop` (`13041a8`), e o estado completo do MVP foi commitado na `develop` (`d57d813`). O working tree da `main` segue com as mesmas alterações não commitadas por escolha do usuário; a `develop` preserva o histórico antigo da extensão por decisão dele.
 
@@ -136,6 +136,12 @@ A regra de falsa escassez agora exige quantidade ou referência explícita a est
 ## Microsprint 14.19 implementada — Ignorar texto de escassez não renderizado
 
 O scraper fornece à regra de escassez somente trechos curtos de elementos efetivamente renderizados pelo navegador; conteúdo abaixo da dobra continua elegível. Elementos ocultos por estilo computado, `hidden` ou `aria-hidden` são descartados. O limite é de 500 candidatos e 200 caracteres por trecho; a evidência adicional não é enviada ao LLM nem persistida. Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container: texto renderizado abaixo da dobra gera achado; `display:none`, `visibility:hidden`, `hidden`, `aria-hidden` ancestral e opacidade quase zero não geram; na mesma página a evidência cita só o trecho visível.
+
+## Microsprint 14.20 concluída — Confirmshaming só em texto renderizado
+
+A regra de confirmshaming não varre mais o HTML estático: ela consome a mesma lista de candidatos renderizados usada pela escassez, que passou a incluir `a` entre os elementos elegíveis e foi renomeada para `collect_rendered_text_candidates`/`rendered_text_evidence` (interno; o contrato da API não mudou). O fallback estático continua disponível para chamadas fora do fluxo com navegador.
+
+Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container reconstruído: “Não, obrigado” renderizado abaixo da dobra gera achado; `display:none`, `visibility:hidden`, `hidden` e `aria-hidden` ancestral não geram; a evidência cita só o trecho visível. Regressões `test_overlay_detection.py` e `test_scraper_routing.py` seguem passando.
 
 ## Microsprint 13.2 concluída — assimetria em consentimento
 

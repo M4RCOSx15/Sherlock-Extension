@@ -237,6 +237,14 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Critérios para concluir**: elemento renderizado com “restam 2 unidades” pode gerar finding mesmo abaixo da dobra; o mesmo texto sob `display:none`, `visibility:hidden`, opacidade quase zero, `hidden` ou ancestral `aria-hidden=true` não gera finding; demais regras permanecem inalteradas.
 - **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` após rebuild: “restam 2 unidades” renderizado abaixo da dobra gera achado; o mesmo texto sob `display:none`, `visibility:hidden`, `hidden`, `aria-hidden` em ancestral ou opacidade quase zero não gera achado; na mesma página, a evidência cita somente o trecho visível. A conferência em página real continua opcional para o usuário.
 
+### [x] Microsprint 14.20 — Ignorar texto de confirmshaming não renderizado
+- **Motivo**: a regra de confirmshaming ainda varria o HTML estático com BeautifulSoup, podendo sinalizar frases de recusa presentes em elementos ocultos por CSS, `hidden` ou `aria-hidden` — a mesma classe de falso positivo corrigida na 14.19 para escassez.
+- **Escopo**: reutilizar a coleta de candidatos renderizados do Playwright, incluindo `a` entre os elementos elegíveis, e alimentar também a regra de confirmshaming com essa lista. Renomear a coleta e o campo interno para `collect_rendered_text_candidates`/`rendered_text_evidence`, já que a lista passa a servir às duas regras textuais. Manter o fallback estático da regra para chamadas fora do fluxo com navegador. Conteúdo abaixo da dobra continua elegível.
+- **Privacidade e segurança**: os limites já existentes se mantêm (500 candidatos, 200 caracteres por trecho); a evidência continua curta e inerte, em memória apenas, sem envio ao LLM nem persistência.
+- **Fora do escopo**: mudar o léxico de confirmshaming, validar intenção da recusa, estender a coleta renderizada a outras regras (overlay, preço) ou alterar o score.
+- **Critérios para concluir**: link de recusa renderizado, inclusive abaixo da dobra, gera achado; o mesmo texto sob `display:none`, `visibility:hidden`, `hidden` ou ancestral `aria-hidden` não gera; na mesma página, a evidência cita somente o trecho visível; demais regras mantêm o fluxo.
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: “Não, obrigado” renderizado abaixo da dobra gera achado; as quatro variantes ocultas não geram; a evidência ignora o trecho oculto na mesma página. `test_overlay_detection.py` (6 casos) e `test_scraper_routing.py` (6 casos) seguem passando. A conferência em página real continua opcional para o usuário.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)

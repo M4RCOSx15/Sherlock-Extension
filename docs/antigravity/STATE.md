@@ -3,8 +3,8 @@
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-10-16
-- **Sprint Atual/Concluída**: **Microsprints 14.1–14.19 concluídas e validadas em Docker; checkpoint commitado na branch `develop`**.
-- **Fase**: MVP local com análise determinística e etapa semântica Gemini opcional. A análise OLX.com.br mostrou 3.152 elementos, 12.097 caracteres visíveis e um finding de comparação de preços distintos; o Gemini atingiu limite de uso e o fallback determinístico concluiu. A imagem Docker foi reconstruída em 2026-10-16 e `backend/test_rendered_evidence.py` validou os 13 casos das microsprints 14.16–14.19 dentro do container.
+- **Sprint Atual/Concluída**: **Microsprints 14.1–14.20 concluídas e validadas em Docker; checkpoint commitado na branch `develop`**.
+- **Fase**: MVP local com análise determinística e etapa semântica Gemini opcional. A análise OLX.com.br mostrou 3.152 elementos, 12.097 caracteres visíveis e um finding de comparação de preços distintos; o Gemini atingiu limite de uso e o fallback determinístico concluiu. A imagem Docker foi reconstruída em 2026-10-16 e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.20 dentro do container.
 
 ## O Que Foi Entregue (MVP Completo)
 1. **Frontend Completo e Integrado**: `frontend/index.html` consumindo a API verdadeira e demonstrando resultados (Score, Risco, Elementos lidos e Findings) dinamicamente com base em dados de varreduras reais.
@@ -67,6 +67,7 @@ curl.exe -sS http://127.0.0.1:8000/api/health
 - **14.17**: concluída e validada em 2026-10-16; findings de pré-seleção agora exigem checkbox marcado no estado atual, rótulo associado e visível e contexto de marketing. `test_rendered_evidence.py` confirmou os quatro cenários no Python local e dentro do container.
 - **14.18**: concluída e validada; sinais `fake_scarcity` agora exigem quantidade ou contexto explícito de estoque/itens/vagas/oferta limitada. Chamadas vagas “corra”, “hurry”, “apresse-se” e “act now” foram movidas para `fake_urgency` textual de severidade média; “acabando” isolado deixa de pontuar. O usuário confirmou os quatro casos locais e, após o rebuild de 2026-10-16, `test_rendered_evidence.py` repetiu os casos dentro do container com os mesmos resultados.
 - **14.19**: concluída e validada em 2026-10-16; a regra de escassez recebe até 500 trechos curtos de elementos renderizados, ignorando elementos/ancestrais ocultos por estilos, `hidden` ou `aria-hidden`. Conteúdo abaixo da dobra continua elegível. Esses trechos ficam em memória e não são enviados ao LLM. `test_rendered_evidence.py` confirmou visível abaixo da dobra, cinco variantes ocultas e a citação somente do trecho visível, no Python local e dentro do container.
+- **14.20**: concluída e validada em 2026-10-16; a regra de confirmshaming passa a usar a mesma lista de candidatos renderizados (agora `rendered_text_evidence`, incluindo `a`), em vez do HTML estático. `test_rendered_evidence.py` confirmou recusa visível abaixo da dobra, quatro variantes ocultas sem achado e a citação somente do trecho visível, no Python local e dentro do container.
 - **Pontuação heurística**: o score soma pesos de regras e não é uma probabilidade calibrada de manipulação nem prova de intenção.
 - O código original legado da extensão Chrome (arquivos na raiz como manifest e popups) não tem mais serventia, o foco mudou 100% para a plataforma Web SaaS.
 - A máquina Windows local exige a flag `loop="none"` e uso da `WindowsProactorEventLoopPolicy` para que a integração Uvicorn + Playwright funcione adequadamente, garantido pelo `run_server.py`.

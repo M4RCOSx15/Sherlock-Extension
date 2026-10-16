@@ -97,7 +97,7 @@ class PageData:
     consent_choice_evidence: list[dict[str, object]] = field(default_factory=list)
     countdown_evidence: list[str] = field(default_factory=list)
     preselection_evidence: list[str] = field(default_factory=list)
-    scarcity_evidence: list[str] = field(default_factory=list)
+    rendered_text_evidence: list[str] = field(default_factory=list)
 
 
 class ScraperError(RuntimeError):
@@ -318,12 +318,16 @@ async def collect_visible_preselection_evidence(page: Page) -> list[str]:
     return [item for item in result if isinstance(item, str) and item.strip()]
 
 
-async def collect_rendered_scarcity_candidates(page: Page) -> list[str]:
-    """Return short candidate texts from rendered elements, including below-fold content."""
+async def collect_rendered_text_candidates(page: Page) -> list[str]:
+    """Return short candidate texts from rendered elements, including below-fold content.
+
+    Shared by text rules (scarcity, confirmshaming): only elements the browser
+    actually rendered are eligible, so hidden markup cannot produce findings.
+    """
     result = await page.evaluate(
         """() => {
           const candidates = [...document.querySelectorAll(
-            'span, p, div, strong, b, em, small, li, button'
+            'span, p, div, strong, b, em, small, li, button, a'
           )].slice(0, 500);
           const evidence = [];
           const seen = new Set();
@@ -622,7 +626,7 @@ async def _scrape(browser: Browser, url: str, timeout_ms: int) -> PageData:
         consent_choice_evidence = await collect_visible_consent_choices(page)
         countdown_evidence = await collect_visible_countdown_evidence(page)
         preselection_evidence = await collect_visible_preselection_evidence(page)
-        scarcity_evidence = await collect_rendered_scarcity_candidates(page)
+        rendered_text_evidence = await collect_rendered_text_candidates(page)
         duration_ms = int((time.monotonic() - t_start) * 1000)
     except PlaywrightError as exc:
         raise ScraperError("SCRAPER_INTERNAL", f"Erro ao extrair dados da página: {exc}")
@@ -640,7 +644,7 @@ async def _scrape(browser: Browser, url: str, timeout_ms: int) -> PageData:
         consent_choice_evidence=consent_choice_evidence,
         countdown_evidence=countdown_evidence,
         preselection_evidence=preselection_evidence,
-        scarcity_evidence=scarcity_evidence,
+        rendered_text_evidence=rendered_text_evidence,
     )
 
 

@@ -200,23 +200,23 @@ _SCARCITY_RE = re.compile(
 def _check_fake_scarcity(
     html: str,
     text: str,
-    rendered_scarcity_candidates: list[str] | None = None,
+    rendered_text_candidates: list[str] | None = None,
 ) -> list[ScanFinding]:
     findings: list[ScanFinding] = []
 
-    if rendered_scarcity_candidates is None:
+    if rendered_text_candidates is None:
         # Fallback for callers outside the browser-backed scan flow. The API
         # passes an explicit list, including [] when no rendered candidates exist.
         soup = _soup(html)
         candidates = [
             _visible_text(tag)
             for tag in soup.find_all(
-                ["span", "p", "div", "strong", "b", "em", "small", "li", "button"],
+                ["span", "p", "div", "strong", "b", "em", "small", "li", "button", "a"],
                 limit=500,
             )
         ]
     else:
-        candidates = rendered_scarcity_candidates
+        candidates = rendered_text_candidates
 
     seen: set[str] = set()
     for t in candidates:
@@ -304,18 +304,27 @@ _CONFIRMSHAMING_RE = re.compile(
 
 
 @_rule
-def _check_confirmshaming(html: str, text: str) -> list[ScanFinding]:
+def _check_confirmshaming(
+    html: str,
+    text: str,
+    rendered_text_candidates: list[str] | None = None,
+) -> list[ScanFinding]:
     findings: list[ScanFinding] = []
-    soup = _soup(html)
 
-    # Foca em links e botões de recusa
-    candidates = soup.find_all(
-        ["a", "button", "span", "p"],
-        limit=300,
-    )
+    if rendered_text_candidates is None:
+        # Fallback fora do fluxo com navegador: lê o HTML estático, que pode
+        # conter elementos ocultos. A API sempre passa a lista renderizada.
+        soup = _soup(html)
+        candidates = [
+            _visible_text(tag)
+            for tag in soup.find_all(["a", "button", "span", "p"], limit=300)
+        ]
+    else:
+        candidates = rendered_text_candidates
+
     seen: set[str] = set()
-    for tag in candidates:
-        t = _visible_text(tag)
+    for t in candidates:
+        t = " ".join(t.split())
         if len(t) > 100 or not t:
             continue
         evidence = _first_match(_CONFIRMSHAMING_RE, t)
@@ -619,7 +628,7 @@ def analyze(
     consent_choice_evidence: list[dict[str, object]] | None = None,
     visible_countdown_evidence: list[str] | None = None,
     visible_preselection_evidence: list[str] | None = None,
-    rendered_scarcity_candidates: list[str] | None = None,
+    rendered_text_candidates: list[str] | None = None,
 ) -> list[ScanFinding]:
     """
     Executa todas as regras determinísticas sobre o HTML e texto da página.
@@ -635,8 +644,9 @@ def analyze(
             pelo Playwright e com formato de tempo reconhecível.
         visible_preselection_evidence: rótulos visíveis associados a checkboxes
             marcados no estado atual e avaliados pela regra de opt-in de marketing.
-        rendered_scarcity_candidates: textos curtos extraídos pelo navegador de
-            elementos efetivamente renderizados, incluindo conteúdo abaixo da dobra.
+        rendered_text_candidates: textos curtos extraídos pelo navegador de
+            elementos efetivamente renderizados, incluindo conteúdo abaixo da
+            dobra. Alimenta as regras textuais (escassez, confirmshaming).
 
     Returns:
         Lista de ScanFinding. Pode ser vazia se nenhum padrão for detectado.
@@ -653,7 +663,9 @@ def analyze(
             elif rule_fn is _check_hidden_preselection:
                 all_findings.extend(rule_fn(html, text, visible_preselection_evidence))
             elif rule_fn is _check_fake_scarcity:
-                all_findings.extend(rule_fn(html, text, rendered_scarcity_candidates))
+                all_findings.extend(rule_fn(html, text, rendered_text_candidates))
+            elif rule_fn is _check_confirmshaming:
+                all_findings.extend(rule_fn(html, text, rendered_text_candidates))
             else:
                 all_findings.extend(rule_fn(html, text))
         except Exception:

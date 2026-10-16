@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Validação local das microsprints 14.16–14.19; não faz chamadas de rede.
+"""Validação local das microsprints 14.16–14.20; não faz chamadas de rede.
 
-Cobre os casos pendentes descritos em docs/antigravity/MICROSPRINTS.md:
+Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.16: timer só gera urgência alta quando visível e com valor temporal.
   - 14.17: pré-seleção exige checkbox marcado + rótulo visível de marketing.
   - 14.18: chamadas vagas são urgência; escassez exige quantidade/estoque.
   - 14.19: escassez usa somente texto renderizado (inclusive abaixo da dobra).
+  - 14.20: confirmshaming usa a mesma lista renderizada (links inclusos).
 
 Rodar com: python backend/test_rendered_evidence.py
 """
@@ -23,7 +24,7 @@ from playwright.async_api import async_playwright
 
 from backend.analyzer import analyze
 from backend.scraper import (
-    collect_rendered_scarcity_candidates,
+    collect_rendered_text_candidates,
     collect_visible_consent_choices,
     collect_visible_countdown_evidence,
     collect_visible_overlay_evidence,
@@ -40,7 +41,7 @@ async def analyze_page(page) -> list:
         await collect_visible_consent_choices(page),
         await collect_visible_countdown_evidence(page),
         await collect_visible_preselection_evidence(page),
-        await collect_rendered_scarcity_candidates(page),
+        await collect_rendered_text_candidates(page),
     )
 
 
@@ -219,6 +220,48 @@ async def main() -> None:
                 f"Evidência citou texto oculto: {findings!r}"
             )
             print("[OK] 14.19 evidência ignora o trecho oculto na mesma página")
+
+            # ── 14.20: confirmshaming também usa só texto renderizado ──
+            await page.set_content("""
+              <main>
+                <div style="height:5000px"></div>
+                <a href="#">Não, obrigado</a>
+              </main>
+            """)
+            findings = await analyze_page(page)
+            shaming = [f for f in findings if f.id == "confirmshaming"]
+            assert len(shaming) == 1, (
+                f"Recusa renderizada abaixo da dobra não gerou achado: {findings!r}"
+            )
+            print("[OK] 14.20 recusa renderizada abaixo da dobra gera achado")
+
+            for descricao, html in (
+                ("display:none", '<a href="#" style="display:none">Não, obrigado</a>'),
+                ("visibility:hidden",
+                 '<a href="#" style="visibility:hidden">Não, obrigado</a>'),
+                ("atributo hidden", '<a href="#" hidden>Não, obrigado</a>'),
+                ("aria-hidden em ancestral",
+                 '<div aria-hidden="true"><a href="#">Não, obrigado</a></div>'),
+            ):
+                await page.set_content(f"<main>{html}</main>")
+                findings = await analyze_page(page)
+                assert "confirmshaming" not in ids(findings), (
+                    f"Recusa oculta por {descricao} gerou achado: {findings!r}"
+                )
+            print("[OK] 14.20 recusa oculta não gera achado")
+
+            await page.set_content("""
+              <main>
+                <a href="#" style="display:none">Não, prefiro perder</a>
+                <a href="#">Não, obrigado</a>
+              </main>
+            """)
+            findings = await analyze_page(page)
+            shaming = [f for f in findings if f.id == "confirmshaming"]
+            assert shaming and "prefiro perder" not in shaming[0].evidence.casefold(), (
+                f"Evidência citou recusa oculta: {findings!r}"
+            )
+            print("[OK] 14.20 evidência ignora o trecho oculto na mesma página")
         finally:
             await browser.close()
 
