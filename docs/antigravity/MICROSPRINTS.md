@@ -70,8 +70,167 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Fora do escopo**: streaming de raciocínio, envio do HTML integral, armazenamento da chave no repositório, treinamento/calibração estatística do score, deploy e persistência. A interface/documentação deve informar que o recorte textual é enviado ao provedor quando a opção for habilitada.
 - **Critérios para concluir**: com `LLM_ENABLED=false` ou sem uma chave válida, o comportamento determinístico continua disponível; com Gemini configurado localmente, a API chama o provedor através do proxy, agrega apenas achados com citação presente no texto enviado e informa o estado em `meta.llm_status`; falha/timeout do provedor retorna o resultado determinístico; o segredo não aparece no frontend, nos relatórios ou nos logs; o `.env` não é versionado. A configuração gratuita do Gemini informa o uso dos dados enviados para melhoria de produtos e revisão humana.
 
+### [x] Microsprint 13.1 — Reduzir falso positivo de overlay
+- **Estado**: concluída em 2026-09-28. A regra não usa mais `[role=dialog]` isoladamente. O scraper verifica visibilidade efetiva na viewport e requer semântica modal ou sinais combinados de posição, z-index e área ocupada; somente então fornece texto literal como evidência.
+- **Validação**: o usuário executou `python backend/test_overlay_detection.py`; passaram página neutra com link fora da tela e dialog não modal, modal visível e modal oculto. Após reconstruir a API no Docker, analisou o Mercado Livre: 1.624 elementos, score de 10% e evidência do banner de cookies visível; o texto de navegação acessível observado antes deixou de aparecer.
+- **Limite**: visibilidade e forma de modal não provam intenção manipulativa. O resultado continua sendo um sinal heurístico para revisão, não uma acusação de dark pattern.
+
+### [x] Microsprint 13.2 — Avaliar assimetria em consentimento (concluída em 2026-09-28)
+- **Escopo aprovado**: distinguir presença de banner de cookies de sinais observáveis de escolha assimétrica.
+- **Implementação**: extrair rótulos de ações e sinais básicos de destaque visual apenas dos controles visíveis na camada de consentimento. A regra `consent_asymmetry` usa severidade baixa para falta de recusa direta ou destaque muito maior para aceitar; presença do banner, sozinha, não cria finding. `meta.rules_applied` passa a ser 7.
+- **Critérios de aceite**: banner equilibrado sem finding nem pontos; opção aceitar sem recusa direta produz evidência textual e sinal baixo; aceitar visualmente muito mais proeminente que recusar produz sinal; modal não relacionado a consentimento mantém sua detecção anterior.
+- **Validação**: `python backend/test_overlay_detection.py` passou nos seis cenários: página neutra/dialog não modal, modal visível, modal oculto, banner equilibrado sem pontos, ausência de recusa direta com sinal leve e diferença de destaque entre aceitar e rejeitar. O usuário confirmou os containers `rastro-api` e `rastro-egress-proxy` como saudáveis após a reconstrução.
+- **Validação integrada**: no Mercado Livre, o usuário observou 1.624 elementos, 5% de risco contextual baixo e um único finding `consent_asymmetry` (“Aceitar cookies” visível; “Configurar cookies” pode abrir outras opções). O finding anterior de overlay não aparece; a queda de 10% para 5% confirma que a presença do banner deixou de pontuar separadamente. O Gemini ficou indisponível nessa requisição e o fallback determinístico concluiu a análise.
+- **Limite**: o finding é heurístico e não prova intenção manipulativa ou descumprimento legal.
+
+### [x] Microsprint 13.3 — Diagnóstico seguro da disponibilidade do LLM
+- **Motivo**: análises recentes concluíram pelo fallback determinístico quando o Gemini ficou indisponível, embora a integração híbrida já tenha funcionado anteriormente. O usuário precisa distinguir falha de configuração, timeout, limite, autenticação, conexão ou erro do provedor sem revelar detalhes sensíveis.
+- **Escopo aprovado**: classificar falhas em categorias estáveis no backend; expor a categoria em `meta.llm_unavailable_reason`; traduzir a categoria em mensagem curta e compreensível na interface. Preservar o fallback determinístico e não incluir resposta bruta do provedor, prompt, URL, texto da página, chave ou request ID na resposta pública. Manter a política de retries e o limite de tempo atuais nesta microsprint.
+- **Critérios de aceite**: sucesso/desativado/sem texto mantêm motivo `null`; falhas mapeiam para categorias seguras (`not_configured`, `configuration_error`, `timeout`, `rate_limited`, `authentication_error`, `network_error`, `request_rejected`, `invalid_response`, `provider_error`); interface explica a categoria sem interromper o resultado determinístico; logs continuam sem conteúdo da página ou segredo.
+- **Estado**: implementação e revisão do contrato concluídas. A interface apresenta a categoria segura quando o provedor falha, mantendo o resultado determinístico. A análise híbrida após a reconstrução confirmou que o caminho de sucesso permanece funcional.
+- **Limitação de validação**: não houve indisponibilidade real após a mudança para confirmar visualmente `llm_unavailable_reason`. Não alterar a chave nem quebrar a configuração válida para forçar esse caminho; validar naturalmente se ocorrer nova falha.
+- **Referências de integração**: [compatibilidade Gemini/OpenAI](https://ai.google.dev/gemini-api/docs/openai), [troubleshooting oficial](https://ai.google.dev/gemini-api/docs/troubleshooting).
+
+### [x] Microsprint 14.1 — Histórico local de análises
+- **Objetivo**: permitir que a pessoa consulte análises anteriores no protótipo sem criar conta, banco ou endpoint de persistência.
+- **Escopo**: salvar somente por ação explícita do usuário, usando `localStorage`; limitar a 10 registros; mostrar domínio, data, score, risco e trechos curtos das evidências; permitir remover um registro ou apagar todos; apresentar aviso de que os dados ficam somente no navegador.
+- **Privacidade e segurança**: não salvar URL completa, caminho, query string, fragmento, HTML da página, credenciais nem prompt. Inserir conteúdo armazenado como texto inerte. Tratar indisponibilidade/quota do armazenamento sem quebrar a análise.
+- **Fora do escopo**: login, sincronização entre dispositivos, persistência no backend/banco, download/exportação e mudança do contrato da API.
+- **Critérios de aceite**: análise só entra no histórico após clicar em “SALVAR NO HISTÓRICO”; lista persiste ao recarregar no mesmo navegador; remoção individual e limpeza total atualizam lista e contador; no máximo 10 itens; nenhuma URL completa ou HTML é armazenado; indisponibilidade de `localStorage` mostra mensagem compreensível e não interrompe o fluxo de análise.
+- **Validação**: em 2026-09-28, o usuário confirmou que salvar e remover relatórios funcionaram no navegador. A validação foi manual; nenhum teste automatizado foi executado nesta sessão.
+
+### [x] Microsprint 14.2 — Exportar relatório em Markdown
+- **Objetivo**: permitir que o usuário baixe um relatório legível e portátil, sem depender de conta ou serviço externo.
+- **Escopo**: incluir ação de download no resultado atual e em cada item do histórico. Gerar arquivo `.md` local com domínio, data, score heurístico, nível de risco e até 10 evidências já armazenadas; nomear arquivo com domínio e data.
+- **Privacidade e segurança**: não incluir URL completa, query, fragmento, HTML, prompt ou segredo. Escapar caracteres Markdown e normalizar quebras de linha em texto de evidência para impedir que conteúdo da página injete estrutura no relatório. Usar Blob/Object URL no navegador e revogar o URL temporário.
+- **Fora do escopo**: PDF, envio do arquivo para servidor, alteração da API, acesso à página novamente e persistência remota.
+- **Critérios de aceite**: o resultado atual pode ser baixado sem antes ser salvo no histórico; relatórios salvos também podem ser baixados; o Markdown contém score/risco/achados e ressalva de score heurístico; o nome é seguro; nenhum endereço completo, HTML ou chave é incluído.
+- **Validação**: em 2026-09-28, o usuário confirmou que o download funcionou. A verificação manual do conteúdo do arquivo não foi relatada separadamente; nenhum teste automatizado foi executado nesta sessão.
+
+### [x] Microsprint 14.3 — Transparência sobre envio de texto ao modelo
+- **Motivo**: a interface informa que a análise semântica é opcional, mas ainda não explica que, quando habilitada, um recorte de texto e sinais de controles da página são enviados ao provedor de IA.
+- **Escopo**: mostrar antes do botão de análise um aviso claro de que o RASTRO acessa a URL no scanner e, quando a etapa semântica estiver ativa, envia recorte limitado de texto/sinais de controles ao provedor configurado (atualmente Gemini); explicitar que HTML integral não é enviado e que as regras determinísticas continuam disponíveis. Separar o aviso estático do estado dinâmico de cada análise.
+- **Fora do escopo**: mudar a configuração global do LLM, introduzir consentimento por análise ou alterar o request/contrato da API.
+- **Critérios de aceite**: o aviso aparece antes da ação e continua visível durante/depois da análise; status híbrido, fallback e erros continuam em uma área dinâmica separada; conteúdo corresponde ao payload montado no backend; nenhuma mudança no fluxo `POST /api/scan`.
+- **Validação**: após a atualização, o usuário respondeu “ok, prossiga”; não relatou problema visual. Nenhum teste automatizado foi executado nesta sessão.
+
+### [x] Microsprint 14.4 — Explicar o score no resultado e no relatório Markdown
+- **Motivo**: a interface mostra valores como “5%”, embora o score seja uma soma heurística de pontos por severidade e não uma probabilidade calibrada. O usuário deve conseguir entender de onde vem a escala e como interpretar as faixas.
+- **Escopo**: acrescentar ao resultado uma seção expansível com pesos por severidade, limite do score e faixas de risco; incluir a mesma explicação no relatório Markdown atual e histórico. Manter o indicador e algoritmo atuais.
+- **Fora do escopo**: alterar score, severidades, faixas, API, regras, layout geral, histórico ou dados armazenados.
+- **Critérios para concluir**: UI e exportação explicam pesos baixa=5, média=10, alta=20, crítica=30; score limitado a 100; faixas 0–24 baixo, 25–49 moderado, 50–74 elevado e 75–100 crítico; esclarecem que o símbolo “%” não é probabilidade de manipulação e que os sinais exigem contexto. O detalhe é acessível e fechado por padrão. Nenhum caminho de análise ou formato de API muda.
+- **Validação**: o usuário autorizou seguir após a entrega; não relatou falhas. Nenhum teste automatizado foi executado nesta sessão.
+
+### [x] Microsprint 14.5 — Mostrar gravidade e origem dos achados
+- **Motivo**: o contrato da API já retorna a severidade e o motor de cada achado, mas a tela, o histórico e o Markdown não mostram essa informação. A pessoa não consegue distinguir um sinal produzido por regra determinística de uma interpretação semântica da IA.
+- **Escopo**: exibir gravidade e origem em cada achado do resultado; guardar esses dois campos no histórico local; incluir ambos nos itens históricos e na exportação Markdown. Compatibilidade com relatórios antigos deve ser preservada, indicando origem/gravidade não informada quando esses campos não existirem.
+- **Fora do escopo**: alterar critérios do detector, severidade, score, API, conteúdo enviado ao LLM, estrutura visual geral ou exigir nova análise para ler itens antigos.
+- **Critérios para concluir**: cada achado novo mostra severidade e origem traduzidas; relatórios novos persistem os dois campos; histórico e downloads mostram as informações; entradas antigas continuam abrindo e indicam os metadados ausentes sem falha. Nenhum conteúdo do site é interpretado como HTML executável.
+- **Validação**: o usuário autorizou seguir após a entrega; não relatou falhas. Nenhum teste automatizado foi executado nesta sessão.
+
+### [x] Microsprint 14.6 — Contextualizar evidências e orientar revisão
+- **Motivo**: gravidade e origem tornam os achados mais transparentes, mas quem usa ainda precisa deduzir por que o sinal apareceu e o que conferir na página. Sem contexto, um sinal heurístico pode ser interpretado como conclusão definitiva.
+- **Escopo**: acrescentar uma explicação recolhível por achado para as categorias conhecidas, mostrando o motivo técnico do sinal e uma verificação contextual recomendada. Incluir a explicação completa no Markdown. Persistir somente o ID da categoria necessário para recuperar a explicação; compatibilidade com relatórios antigos por mensagem genérica.
+- **Fora do escopo**: criar novas regras ou findings, alterar severidade/score/API, fazer checagem de fatos externos, fornecer orientação jurídica ou afirmar intenção manipulativa.
+- **Critérios para concluir**: regras determinísticas e categorias semânticas atuais têm explicação apropriada; texto diferencia evidência observada de contexto ainda não verificado; achados desconhecidos e relatórios antigos mostram orientação genérica; conteúdo do site continua renderizado como texto inerte. A análise, o score e o contrato da API não mudam.
+- **Validação**: em 2026-09-28, o usuário confirmou que a explicação e a exportação Markdown funcionaram. Nenhum teste automatizado foi executado nesta sessão.
+
+### [x] Microsprint 14.7 — Preservar metadados da execução no histórico e relatório
+- **Motivo**: a tela mostra se a etapa semântica funcionou, foi ignorada ou usou fallback, mas os relatórios históricos e downloads atuais perdem esse contexto. Sem os metadados, não é possível comparar uma execução híbrida com uma determinística depois.
+- **Escopo**: guardar e exportar somente os metadados já retornados por `meta`: método (`deterministic`/`hybrid`), status semântico, categoria segura de indisponibilidade, duração, quantidade de elementos analisados e regras aplicadas. Exibir um resumo no histórico e uma seção no Markdown. Manter os dados locais e não salvar URL completa, conteúdo da página, resposta bruta ou segredo.
+- **Fora do escopo**: alterar o backend, modelo, análise, contrato, lógica de score ou publicar os metadados externamente.
+- **Critérios para concluir**: relatórios novos exibem status e estatísticas corretos; falhas mostram somente a categoria segura já presente na API; registros antigos seguem funcionando e indicam metadados não registrados; nenhuma informação da página ou segredo é acrescentado ao armazenamento.
+- **Validação**: em 2026-09-28, o usuário confirmou que ambos funcionaram e autorizou seguir. A validação foi manual; nenhum teste automatizado foi executado nesta microsprint. Não houve falha natural do provedor nesta validação.
+
+### [x] Microsprint 14.8 — Atualizar runbook Docker-first e reconciliar documentação
+- **Motivo**: o Docker Compose é o fluxo local validado pelo usuário, mas o README e o handoff ainda priorizam o servidor Python direto e descrevem como pendente a integração Gemini no Docker. As limitações da API também podem ser confundidas com os recursos locais da interface.
+- **Escopo**: documentar pré-requisito Docker Desktop, build/inicialização, health check, endereços da aplicação e Swagger, logs, restart, rebuild e parada; manter Python como alternativa e registrar que ele não usa o isolamento de egress do Compose. Atualizar o status real do Gemini e esclarecer que histórico/download são locais no navegador, não recursos persistidos pela API.
+- **Fora do escopo**: mudar código da aplicação, configuração/segurança dos containers, integração LLM, executar comandos Docker na máquina do usuário ou criar persistência remota.
+- **Critérios para concluir**: comandos e rotas coincidem com `compose.yaml` e `backend/main.py`; a documentação explica que o Docker Desktop precisa estar rodando e que `health: starting` é transitório; diferencia explicitamente recursos do frontend e da API; não afirma que existe deploy público.
+- **Validação**: revisão estática da documentação e `git diff --check` passaram; em 2026-09-28, o usuário confirmou que a atualização está correta. Nenhum teste de aplicação foi executado nesta microsprint.
+
+### [x] Microsprint 14.9 — Rastrear a evidência até o DOM capturado
+- **Motivo**: o relatório apresenta o trecho que gerou um achado, mas não indica em qual elemento do DOM capturado ele foi encontrado. Isso dificulta a conferência manual da evidência.
+- **Escopo**: localizar no HTML capturado o trecho entre aspas da evidência e expor um campo opcional `findings[].dom_reference`, contendo somente tags e posições de irmãos (`tag:nth-of-type(n)`). Exibir a referência de forma recolhível nos achados, no histórico local e no Markdown, acompanhada de uma nota sobre seus limites.
+- **Privacidade e segurança**: o caminho não inclui texto, IDs, classes ou outros atributos da página; renderizá-lo como texto inerte. Não enviar HTML adicional ao LLM nem persistir conteúdo integral da página.
+- **Fora do escopo**: mudar as regras de detecção, score, severidade, análise LLM, captura/renderização do navegador, armazenamento remoto ou implementar um seletor permanente para acompanhar mudanças no site.
+- **Critérios para concluir**: quando um trecho curto citado for localizado, a API retorna um caminho posicional limitado; quando a evidência não tiver citação localizável, o campo é `null`; a interface não mostra referências fora do formato permitido e explica que a estrutura pode mudar e que o caminho não prova visibilidade; histórico antigo continua legível.
+- **Validação**: revisão estática e `git diff --check` concluídos sem erros de whitespace. Em 2026-09-28, o usuário confirmou que estava correto e autorizou prosseguir. Nenhum teste automatizado foi executado nesta microsprint.
+
+### [x] Microsprint 14.10 — Identificar o domínio final nos relatórios
+- **Motivo**: quando uma página redireciona, o resultado atual identifica o domínio final analisado, mas o histórico e o Markdown podem registrar o hostname que a pessoa digitou. Isso deixa o relatório inconsistente com a análise.
+- **Escopo**: montar o snapshot de relatório usando `apiData.domain`, que representa o domínio final carregado pelo backend, com fallback para o hostname digitado caso o campo não venha na resposta. Documentar a diferença entre `url` solicitada e `domain` analisado.
+- **Privacidade**: continuar armazenando/exportando apenas o domínio, nunca a URL completa, caminho, query ou fragmento.
+- **Fora do escopo**: mudar redirects, política anti-SSRF, forma de validação de URL, exibir/salvar a URL original, alterar o score ou o esquema de histórico.
+- **Critérios para concluir**: para navegação sem redirect, histórico/Markdown preservam o domínio já exibido; após redirect, identificam o domínio final reportado pela API; relatórios antigos continuam válidos; fallback cobre respostas antigas sem `domain`.
+- **Validação**: em 2026-09-28, após reconstruir e analisar um endereço com redirect, o usuário confirmou que `example.com` apareceu como domínio analisado. A confirmação separada no histórico e no arquivo Markdown não foi relatada; ambos usam o mesmo domínio do snapshot. Nenhum teste automatizado foi executado.
+
+### [x] Microsprint 14.11 — Explicar redirecionamentos entre domínios
+- **Motivo**: após seguir uma URL redirecionada, mostrar apenas o domínio final pode surpreender quem submeteu outro domínio e deixar ambíguo qual endereço iniciou a análise.
+- **Escopo**: quando os hostnames diferirem, mostrar no resultado a origem e o domínio final analisado; preservar os dois hostnames no histórico local e descrevê-los no Markdown. Tratar diferenças apenas de maiúsculas ou prefixo `www.` como mesmo domínio para não sinalizar uma troca cosmética.
+- **Privacidade**: guardar e exportar somente hostnames; nunca a URL completa, caminho, query string, fragmento ou HTML. Inserir valores como texto inerte.
+- **Fora do escopo**: alterar o seguimento de redirects, a política anti-SSRF, o contrato da API, o score ou a análise semântica.
+- **Critérios para concluir**: redirect para outro domínio é explicado na tela, no histórico e no Markdown; sem mudança real de domínio, a nota não aparece; relatórios antigos continuam válidos e não exibem aviso; nenhuma URL completa passa a ser armazenada.
+- **Validação**: em 2026-09-28, o usuário confirmou que o aviso de redirecionamento funcionou. A validação manual de histórico e Markdown não foi relatada; ambos usam os mesmos hostnames do resultado. Nenhum teste automatizado foi executado.
+
+### [x] Microsprint 14.12 — Esperar a estabilização do DOM com limite
+- **Motivo**: páginas com renderização client-side podem acrescentar texto depois de `DOMContentLoaded`; uma pausa fixa pode encerrar cedo em páginas lentas e esperar demais em páginas que já estabilizaram.
+- **Escopo**: substituir a pausa fixa por consultas a cada 250 ms de uma assinatura compacta do texto/DOM. Aguardar no mínimo 2.000 ms, encerrar depois de 750 ms sem mudanças ou no teto configurável (padrão 3.500 ms; limite 0–5.000 ms). Revalidar a URL final se ocorrer navegação client-side durante a espera.
+- **Privacidade e segurança**: manter apenas a assinatura em memória durante a captura, sem registrar texto no log; não usar `networkidle`; preservar o filtro de requests e revalidar o destino final antes de extrair os dados.
+- **Fora do escopo**: aumentar limites do LLM, contornar bloqueios anti-bot/login, garantir que todo conteúdo dinâmico seja carregado ou alterar as regras de score.
+- **Critérios para concluir**: a janela termina por estabilidade ou pelo teto; configuração `0` desativa a espera; páginas públicas continuam passando pelos mesmos controles SSRF; documentação e valores padrão refletem o comportamento adaptativo.
+- **Validação**: em 2026-09-28, o usuário confirmou que conferiu a espera adaptativa. Os valores de duração e contagem de elementos não foram registrados; nenhum teste automatizado foi executado nesta microsprint.
+
+### [x] Microsprint 14.13 — Exigir preços distintos para sinalizar ancoragem
+- **Motivo**: uma análise anterior sinalizou ancoragem com evidência repetida do mesmo valor (`R$ 79,99 R$ 79,99`), sem demonstrar uma comparação entre preço de referência e preço atual.
+- **Escopo**: só produzir o finding quando um elemento de preço antigo/riscado e um bloco próximo e compacto apresentarem valores monetários distintos na mesma moeda. Normalizar separadores e repetição de valores para não contar a mesma quantia duas vezes; manter no máximo um achado por página e citar o texto literal do bloco.
+- **Privacidade e segurança**: usar apenas o HTML/texto já capturado, manter a evidência curta e inerte e não registrar nem persistir conteúdo adicional da página.
+- **Fora do escopo**: inferir se o desconto é real, comparar preços com fontes externas, alterar pesos/score, introduzir LLM ou mudar o contrato da API.
+- **Critérios para concluir**: valores repetidos/iguais não geram `price_anchoring`; duas quantias distintas no mesmo bloco associado a um seletor de preço antigo podem gerar um único sinal com evidência localizável; outras regras e relatórios permanecem compatíveis.
+- **Validação**: em 2026-09-28, o usuário autorizou prosseguir após a implementação; não relatou separadamente os valores observados nos dois casos. Revisão estática e `git diff --check` passaram; nenhum teste automatizado foi executado.
+
+### [x] Microsprint 14.14 — Exibir o volume de texto visível capturado
+- **Motivo**: o estado “sem texto suficiente” não mostra quanto texto foi extraído. A contagem ajuda a diferenciar uma captura curta de uma página longa cujo texto não passou pelos critérios da etapa semântica.
+- **Escopo**: retornar `meta.visible_text_characters` com o total de caracteres de `body.innerText` capturado; exibir a contagem no resultado e incluir no resumo do histórico local e na exportação Markdown. Preservar a leitura de relatórios antigos sem esse campo.
+- **Privacidade**: armazenar/exportar somente a quantidade, nunca o texto capturado; explicar que a contagem total não é a quantidade enviada ao LLM, que continua limitada a 12.000 caracteres.
+- **Fora do escopo**: mudar o limiar do LLM, conteúdo do prompt, captura do DOM, regras determinísticas, score ou persistência remota.
+- **Critérios para concluir**: a API retorna um inteiro não negativo; o resultado mostra a contagem sem afirmar que todo texto foi enviado ao modelo; histórico e Markdown preservam somente o número; registros antigos continuam válidos.
+- **Validação**: em 2026-09-28, o usuário mostrou `12.097` caracteres no resultado e no histórico, e confirmou que o relatório Markdown contém `12097` sem incluir o texto da página. Registros anteriores sem a métrica continuam legíveis. A análise OLX também mostrou o finding de preço esperado; o provedor atingiu o limite de uso e o fallback determinístico concluiu. Validação manual concluída; nenhum teste automatizado foi executado.
+
+### [x] Microsprint 14.15 — Limitar o tamanho da URL submetida
+- **Motivo**: o contrato não limitava o tamanho do endereço submetido, permitindo que entradas excessivamente longas chegassem ao fluxo de captura.
+- **Escopo**: rejeitar no backend URLs acima de 2.048 caracteres após aparar espaços e verificar novamente depois de acrescentar `https://`; validar também na interface e apresentar erro compreensível. A interface deve traduzir erros `422` de validação da API sem tratá-los como falha de acesso. A rejeição deve acontecer antes de iniciar a verificação anti-SSRF ou o navegador.
+- **Privacidade e segurança**: não registrar nem persistir a URL rejeitada; não enfraquecer as validações existentes de esquema, hostname e SSRF.
+- **Fora do escopo**: impor limite ao corpo HTTP completo, alterar limites de captura/LLM, criar rate limit ou mudar a forma como URLs válidas são analisadas.
+- **Critérios para concluir**: entrada acima do limite é rejeitada com HTTP 422 e mensagem de validação clara antes da captura; frontend exibe tanto a validação local como o erro 422 do backend junto ao campo; URL dentro do limite continua no fluxo atual; frontend e contrato documentam o mesmo valor; não há acesso à página para a entrada inválida.
+- **Validação**: em 2026-09-29, o usuário confirmou que a URL acima do limite exibe “A URL deve ter no máximo 2.048 caracteres.” Não houve nova análise de URL pública normal nessa confirmação; o caminho de sucesso não foi alterado. Nenhum teste automatizado foi executado.
+
+### [x] Microsprint 14.16 — Exigir evidência visível para timer de urgência
+- **Motivo**: a regra atual classifica a presença de seletores/classes `countdown` ou `timer` no HTML como urgência alta, mesmo se o elemento estiver oculto ou vazio.
+- **Escopo**: usar o Playwright para recolher, em pequena quantidade, texto de contadores explicitamente nomeados, visíveis na viewport e com formato de tempo reconhecível. Só esse sinal pode acionar a variante de severidade alta. Manter os padrões textuais de urgência já existentes como achados médios. Não considerar as palavras isoladas “timer” ou “countdown” evidência textual.
+- **Privacidade e segurança**: extrair somente trechos curtos em memória, sem registrar, guardar ou enviar conteúdo adicional ao LLM; usar `textContent` renderizado como texto inerte nos relatórios existentes.
+- **Fora do escopo**: validar se o prazo é real, investigar histórico de preços, mudar score/pesos, criar novas categorias ou ampliar o texto enviado ao LLM.
+- **Critérios para concluir**: classe de contador ausente, oculta ou vazia não produz finding alto; contador visível com valor temporal produz um único finding de urgência alta com evidência literal curta; linguagem explícita de urgência continua detectável em severidade média; a página neutra e os outros findings não mudam.
+- **Validação**: implementação e documentação concluídas. A pedido do usuário, a sequência avançou antes da validação manual; reconstruir e conferir um timer visível e um timer oculto/vazio permanece pendente. Nenhum teste automatizado foi executado.
+
+### [x] Microsprint 14.17 — Exigir contexto para pré-seleção de marketing
+- **Motivo**: a regra atual pode pontuar qualquer checkbox marcado sem rótulo, embora isso não indique que a opção pré-selecionada seja publicidade, newsletter ou oferta.
+- **Escopo**: o Playwright deve observar o estado atual do checkbox, rótulos associados e rótulos visíveis na viewport. Emitir achado apenas se o checkbox estiver marcado e o texto do rótulo mencionar marketing, newsletter, oferta ou categoria equivalente já coberta pela regra. Remover a heurística que classifica checkbox sem rótulo como suspeito.
+- **Privacidade e segurança**: recolher somente trechos curtos em memória; não registrar, persistir nem enviar ao LLM evidência adicional.
+- **Fora do escopo**: detectar todos os tipos de pré-seleção, inferir intenção em campos sem rótulo, mudar score/pesos ou introduzir nova categoria.
+- **Critérios para concluir**: checkbox marcado ligado a rótulo visível de marketing pode gerar finding; checkbox comum, checkbox sem rótulo ou com rótulo oculto não gera finding de pré-seleção; campo desmarcado não gera finding; demais regras continuam no fluxo atual.
+- **Validação**: implementação concluída. Em 2026-10-16, o usuário pediu para prosseguir sem relatar a conferência manual; o rebuild e os cenários com checkbox de marketing pré-marcado e controles comuns ficam pendentes. Nenhum teste automatizado foi executado.
+
+### [ ] Microsprint 14.18 — Separar escassez de urgência vaga
+- **Motivo**: a regra de falsa escassez também sinalizava palavras vagas como “corra” e “acabando” sem referência a estoque, unidades ou disponibilidade, e as rotulava como escassez alta.
+- **Escopo**: exigir quantidade explícita ou contexto de estoque, unidades, itens, vagas ou oferta limitada para `fake_scarcity`. Tratar chamadas explícitas para agir logo (“corra”, “hurry”, “apresse-se”, “act now”) como evidência textual de urgência média. Palavras ambíguas isoladas, como “acabando”, não devem gerar finding.
+- **Privacidade e segurança**: usar texto/HTML já capturados; não ampliar coleta, payload enviado ao LLM, armazenamento ou evidência persistida.
+- **Fora do escopo**: verificar se estoque ou prazo são reais, alterar pesos do score, criar categorias novas ou mudar a extração do DOM.
+- **Critérios para concluir**: chamadas vagas deixam de aparecer como falsa escassez; quantidade/indicação explícita de disponibilidade limitada continua detectável como escassez; frases de pressão para agir passam para urgência; demais regras mantêm o fluxo.
+- **Validação**: implementação e documentação concluídas em 2026-10-16. O Docker não pôde ser acessado neste ambiente (`permission denied` no `docker_engine`); cenários manuais e validação da imagem ficam pendentes. Nenhum teste automatizado foi executado.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)
 - **Deploy**: Depois do gate de segurança da Sprint 12, configurar deploy na Oracle Cloud (VPS).
-- **Persistência**: Banco de dados para salvar relatórios históricos.
+- **Persistência remota**: banco para contas e sincronização de relatórios, em microsprint futura separada; histórico e exportação da 14.x são locais e não substituem esse trabalho.
