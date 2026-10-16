@@ -211,7 +211,7 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Privacidade e segurança**: extrair somente trechos curtos em memória, sem registrar, guardar ou enviar conteúdo adicional ao LLM; usar `textContent` renderizado como texto inerte nos relatórios existentes.
 - **Fora do escopo**: validar se o prazo é real, investigar histórico de preços, mudar score/pesos, criar novas categorias ou ampliar o texto enviado ao LLM.
 - **Critérios para concluir**: classe de contador ausente, oculta ou vazia não produz finding alto; contador visível com valor temporal produz um único finding de urgência alta com evidência literal curta; linguagem explícita de urgência continua detectável em severidade média; a página neutra e os outros findings não mudam.
-- **Validação**: implementação e documentação concluídas. A pedido do usuário, a sequência avançou antes da validação manual; reconstruir e conferir um timer visível e um timer oculto/vazio permanece pendente. Nenhum teste automatizado foi executado.
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` (imagem reconstruída no mesmo dia): timer visível com valor temporal gera urgência alta; timer oculto ou vazio não gera achado. A conferência em página real continua opcional para o usuário.
 
 ### [x] Microsprint 14.17 — Exigir contexto para pré-seleção de marketing
 - **Motivo**: a regra atual pode pontuar qualquer checkbox marcado sem rótulo, embora isso não indique que a opção pré-selecionada seja publicidade, newsletter ou oferta.
@@ -219,7 +219,7 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Privacidade e segurança**: recolher somente trechos curtos em memória; não registrar, persistir nem enviar ao LLM evidência adicional.
 - **Fora do escopo**: detectar todos os tipos de pré-seleção, inferir intenção em campos sem rótulo, mudar score/pesos ou introduzir nova categoria.
 - **Critérios para concluir**: checkbox marcado ligado a rótulo visível de marketing pode gerar finding; checkbox comum, checkbox sem rótulo ou com rótulo oculto não gera finding de pré-seleção; campo desmarcado não gera finding; demais regras continuam no fluxo atual.
-- **Validação**: implementação concluída. Em 2026-10-16, o usuário pediu para prosseguir sem relatar a conferência manual; o rebuild e os cenários com checkbox de marketing pré-marcado e controles comuns ficam pendentes. Nenhum teste automatizado foi executado.
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1`: checkbox de marketing pré-marcado com rótulo visível gera achado; checkbox comum marcado, checkbox de marketing desmarcado e checkbox sem rótulo visível não geram achado. A conferência em página real continua opcional para o usuário.
 
 ### [x] Microsprint 14.18 — Separar escassez de urgência vaga
 - **Motivo**: a regra de falsa escassez também sinalizava palavras vagas como “corra” e “acabando” sem referência a estoque, unidades ou disponibilidade, e as rotulava como escassez alta.
@@ -227,15 +227,15 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Privacidade e segurança**: usar texto/HTML já capturados; não ampliar coleta, payload enviado ao LLM, armazenamento ou evidência persistida.
 - **Fora do escopo**: verificar se estoque ou prazo são reais, alterar pesos do score, criar categorias novas ou mudar a extração do DOM.
 - **Critérios para concluir**: chamadas vagas deixam de aparecer como falsa escassez; quantidade/indicação explícita de disponibilidade limitada continua detectável como escassez; frases de pressão para agir passam para urgência; demais regras mantêm o fluxo.
-- **Validação**: em 2026-10-16, o usuário executou os quatro casos no Python local: “Acabando” não gera finding; “Corra para aproveitar!” gera urgência; “Estoque acabando” e “Restam 2 unidades” geram escassez. A API Docker estava `healthy`, mas o container tinha 8 horas e não foi reconstruído; a validação da imagem continua pendente. Nenhum teste foi executado pelo agente.
+- **Validação**: em 2026-10-16, o usuário executou os quatro casos no Python local: “Acabando” não gera finding; “Corra para aproveitar!” gera urgência; “Estoque acabando” e “Restam 2 unidades” geram escassez. No mesmo dia, a imagem foi reconstruída e `backend/test_rendered_evidence.py` repetiu os quatro casos dentro do container `rastro-api-1`, com os mesmos resultados.
 
-### [ ] Microsprint 14.19 — Ignorar texto de escassez não renderizado
+### [x] Microsprint 14.19 — Ignorar texto de escassez não renderizado
 - **Motivo**: a regra de escassez ainda examinava o HTML estático, podendo encontrar termos em elementos ocultos por CSS, `hidden` ou `aria-hidden`.
 - **Escopo**: coletar no Playwright textos curtos dos mesmos tipos de elementos candidatos somente quando o elemento e seus ancestrais não estiverem ocultos e o elemento tiver geometria renderizada. Considerar também conteúdo renderizado abaixo da dobra. A regra deve usar essa lista no caminho da API; a lista adicional não deve ser enviada ao LLM nem armazenada.
 - **Privacidade e segurança**: limitar a coleta aos primeiros 500 elementos candidatos e a 200 caracteres por trecho; manter a evidência final curta; reusar a captura já feita e não registrar nem persistir os textos intermediários.
 - **Fora do escopo**: mudar a regra lexical definida na 14.18, exigir que o conteúdo esteja na viewport inicial, validar a veracidade da escassez ou mudar o score.
 - **Critérios para concluir**: elemento renderizado com “restam 2 unidades” pode gerar finding mesmo abaixo da dobra; o mesmo texto sob `display:none`, `visibility:hidden`, opacidade quase zero, `hidden` ou ancestral `aria-hidden=true` não gera finding; demais regras permanecem inalteradas.
-- **Validação**: implementação e documentação concluídas em 2026-10-16; rebuild e conferência integrada no Docker pendentes. Nenhum teste foi executado pelo agente.
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` após rebuild: “restam 2 unidades” renderizado abaixo da dobra gera achado; o mesmo texto sob `display:none`, `visibility:hidden`, `hidden`, `aria-hidden` em ancestral ou opacidade quase zero não gera achado; na mesma página, a evidência cita somente o trecho visível. A conferência em página real continua opcional para o usuário.
 
 ---
 
