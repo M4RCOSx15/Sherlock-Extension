@@ -405,11 +405,60 @@ def _price_matches(text: str) -> list[tuple[str, tuple[str, Decimal]]]:
     return matches
 
 
-@_rule
-def _check_price_anchoring(html: str, text: str) -> list[ScanFinding]:
-    findings: list[ScanFinding] = []
-    soup = _soup(html)
+def _anchoring_finding(context_text: str) -> ScanFinding:
+    return ScanFinding(
+        id="price_anchoring",
+        type="Ancoragem de preço",
+        severity="medium",
+        evidence=(
+            "Preços de referência e atual diferentes no mesmo bloco: "
+            f'"{context_text}"'
+        ),
+    )
 
+
+@_rule
+def _check_price_anchoring(
+    html: str,
+    text: str,
+    rendered_price_contexts: list[dict[str, object]] | None = None,
+) -> list[ScanFinding]:
+    findings: list[ScanFinding] = []
+
+    if rendered_price_contexts is not None:
+        # Caminho do navegador: só elementos de preço antigo efetivamente
+        # renderizados chegam aqui, já com os blocos ancestrais compactos.
+        for entry in rendered_price_contexts:
+            if not isinstance(entry, dict):
+                continue
+            old_text = entry.get("old")
+            contexts = entry.get("contexts")
+            if not isinstance(old_text, str) or not isinstance(contexts, list):
+                continue
+            old_prices = {
+                normalized
+                for _, normalized in _price_matches(" ".join(old_text.split()))
+            }
+            if not old_prices:
+                continue
+            for context_text in contexts:
+                if not isinstance(context_text, str):
+                    continue
+                context_text = " ".join(context_text.split())
+                if len(context_text) > 180:
+                    break
+                prices = _price_matches(context_text)
+                has_distinct_current_price = len(old_prices) > 1 or any(
+                    normalized not in old_prices for _, normalized in prices
+                )
+                if has_distinct_current_price:
+                    findings.append(_anchoring_finding(context_text))
+                    break
+            if findings:
+                break
+        return findings[:1]  # no máximo 1 finding desta regra
+
+    soup = _soup(html)
     for sel in _PRICE_SELECTORS:
         try:
             els = soup.select(sel, limit=5)
@@ -437,15 +486,7 @@ def _check_price_anchoring(html: str, text: str) -> list[ScanFinding]:
                     normalized not in old_prices for _, normalized in prices
                 )
                 if has_distinct_current_price:
-                    findings.append(ScanFinding(
-                        id="price_anchoring",
-                        type="Ancoragem de preço",
-                        severity="medium",
-                        evidence=(
-                            "Preços de referência e atual diferentes no mesmo bloco: "
-                            f'"{context_text}"'
-                        ),
-                    ))
+                    findings.append(_anchoring_finding(context_text))
                     break
 
                 parent = context.parent
@@ -629,6 +670,7 @@ def analyze(
     visible_countdown_evidence: list[str] | None = None,
     visible_preselection_evidence: list[str] | None = None,
     rendered_text_candidates: list[str] | None = None,
+    rendered_price_contexts: list[dict[str, object]] | None = None,
 ) -> list[ScanFinding]:
     """
     Executa todas as regras determinísticas sobre o HTML e texto da página.
@@ -647,6 +689,8 @@ def analyze(
         rendered_text_candidates: textos curtos extraídos pelo navegador de
             elementos efetivamente renderizados, incluindo conteúdo abaixo da
             dobra. Alimenta as regras textuais (escassez, confirmshaming).
+        rendered_price_contexts: textos de elementos de preço antigo renderizados
+            com os blocos ancestrais compactos, alimentando a ancoragem.
 
     Returns:
         Lista de ScanFinding. Pode ser vazia se nenhum padrão for detectado.
@@ -666,6 +710,8 @@ def analyze(
                 all_findings.extend(rule_fn(html, text, rendered_text_candidates))
             elif rule_fn is _check_confirmshaming:
                 all_findings.extend(rule_fn(html, text, rendered_text_candidates))
+            elif rule_fn is _check_price_anchoring:
+                all_findings.extend(rule_fn(html, text, rendered_price_contexts))
             else:
                 all_findings.extend(rule_fn(html, text))
         except Exception:

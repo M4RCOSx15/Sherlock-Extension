@@ -98,6 +98,7 @@ class PageData:
     countdown_evidence: list[str] = field(default_factory=list)
     preselection_evidence: list[str] = field(default_factory=list)
     rendered_text_evidence: list[str] = field(default_factory=list)
+    rendered_price_evidence: list[dict[str, object]] = field(default_factory=list)
 
 
 class ScraperError(RuntimeError):
@@ -316,6 +317,64 @@ async def collect_visible_preselection_evidence(page: Page) -> list[str]:
         }"""
     )
     return [item for item in result if isinstance(item, str) and item.strip()]
+
+
+async def collect_rendered_price_contexts(page: Page) -> list[dict[str, object]]:
+    """Return old-price elements and their compact ancestor blocks, when rendered.
+
+    The anchoring rule needs DOM context, not just loose text: for each visible
+    old-price element we return its own text plus the enclosing ancestor texts
+    (same 4-level, <=180-char walk the analyzer performs). Hidden elements and
+    hidden ancestors are excluded.
+    """
+    result = await page.evaluate(
+        """() => {
+          const selector = [
+            'del', 's',
+            '[class*="price-old"]', '[class*="old-price"]',
+            '[class*="price-before"]', '[class*="before-price"]',
+            '[class*="price-original"]', '[class*="original-price"]',
+            '[class*="was-price"]', '[class*="price-was"]',
+            '[class*="compare-price"]', '[class*="regular-price"]',
+            '[class*="preco-de"]', '[class*="de-por"]'
+          ].join(',');
+          const candidates = [...new Set(document.querySelectorAll(selector))].slice(0, 100);
+          const isRendered = (element) => {
+            for (let node = element; node instanceof Element; node = node.parentElement) {
+              const style = getComputedStyle(node);
+              if (node.hasAttribute('hidden') || node.getAttribute('aria-hidden') === 'true' ||
+                  style.display === 'none' || style.visibility === 'hidden' ||
+                  style.visibility === 'collapse' || Number(style.opacity) <= 0.05) return false;
+            }
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          };
+          const clean = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+          const evidence = [];
+          const seen = new Set();
+          for (const element of candidates) {
+            if (!isRendered(element)) continue;
+            const old = clean(element.innerText).slice(0, 80);
+            if (!old) continue;
+            const contexts = [];
+            let node = element;
+            for (let i = 0; i < 4 && node instanceof Element; i += 1) {
+              const ctx = clean(node.innerText);
+              if (ctx.length > 180) break;
+              contexts.push(ctx.slice(0, 200));
+              node = node.parentElement;
+            }
+            if (!contexts.length) continue;
+            const key = `${old}|${contexts.join('|')}`.toLocaleLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            evidence.push({ old, contexts });
+            if (evidence.length >= 10) break;
+          }
+          return evidence;
+        }"""
+    )
+    return [item for item in result if isinstance(item, dict)]
 
 
 async def collect_rendered_text_candidates(page: Page) -> list[str]:
@@ -627,6 +686,7 @@ async def _scrape(browser: Browser, url: str, timeout_ms: int) -> PageData:
         countdown_evidence = await collect_visible_countdown_evidence(page)
         preselection_evidence = await collect_visible_preselection_evidence(page)
         rendered_text_evidence = await collect_rendered_text_candidates(page)
+        rendered_price_evidence = await collect_rendered_price_contexts(page)
         duration_ms = int((time.monotonic() - t_start) * 1000)
     except PlaywrightError as exc:
         raise ScraperError("SCRAPER_INTERNAL", f"Erro ao extrair dados da página: {exc}")
@@ -645,6 +705,7 @@ async def _scrape(browser: Browser, url: str, timeout_ms: int) -> PageData:
         countdown_evidence=countdown_evidence,
         preselection_evidence=preselection_evidence,
         rendered_text_evidence=rendered_text_evidence,
+        rendered_price_evidence=rendered_price_evidence,
     )
 
 

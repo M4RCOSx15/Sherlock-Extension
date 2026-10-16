@@ -1,7 +1,7 @@
 # RASTRO — Handoff de Sessão
 
 ## Resumo Executivo
-O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.20. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.20 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
+O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.21. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.21 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
 
 **Checkpoint Git:** em 2026-10-16, o README reescrito foi enviado a `main` (`da5885f`) e `develop` (`13041a8`), e o estado completo do MVP foi commitado na `develop` (`d57d813`). O working tree da `main` segue com as mesmas alterações não commitadas por escolha do usuário; a `develop` preserva o histórico antigo da extensão por decisão dele.
 
@@ -142,6 +142,12 @@ O scraper fornece à regra de escassez somente trechos curtos de elementos efeti
 A regra de confirmshaming não varre mais o HTML estático: ela consome a mesma lista de candidatos renderizados usada pela escassez, que passou a incluir `a` entre os elementos elegíveis e foi renomeada para `collect_rendered_text_candidates`/`rendered_text_evidence` (interno; o contrato da API não mudou). O fallback estático continua disponível para chamadas fora do fluxo com navegador.
 
 Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container reconstruído: “Não, obrigado” renderizado abaixo da dobra gera achado; `display:none`, `visibility:hidden`, `hidden` e `aria-hidden` ancestral não geram; a evidência cita só o trecho visível. Regressões `test_overlay_detection.py` e `test_scraper_routing.py` seguem passando.
+
+## Microsprint 14.21 concluída — Ancoragem só com preço antigo renderizado
+
+A regra de ancoragem não varre mais o HTML estático: o scraper devolve `rendered_price_evidence`, uma lista curta de elementos de preço antigo efetivamente renderizados (mesmos seletores de antes) com os blocos ancestrais compactos de até 4 níveis/180 caracteres que a regra já usava. A verificação de ocultação é a mesma das demais coletas, mas não exige posição na viewport — conteúdo abaixo da dobra segue elegível. O critério de valores distintos da 14.13 e o fallback estático fora do navegador foram preservados. O contrato da API não mudou.
+
+Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container reconstruído: `del`+preço atual abaixo da dobra gera achado; `display:none`, `visibility:hidden`, `aria-hidden` ancestral e `del` oculto com preço visível não geram; `R$ 79,99` repetido continua sem achado. Com isso, as 7 regras determinísticas consomem somente sinais confirmados como renderizados pelo navegador.
 
 ## Microsprint 13.2 concluída — assimetria em consentimento
 

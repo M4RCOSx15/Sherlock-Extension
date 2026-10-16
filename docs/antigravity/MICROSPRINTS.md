@@ -245,6 +245,14 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Critérios para concluir**: link de recusa renderizado, inclusive abaixo da dobra, gera achado; o mesmo texto sob `display:none`, `visibility:hidden`, `hidden` ou ancestral `aria-hidden` não gera; na mesma página, a evidência cita somente o trecho visível; demais regras mantêm o fluxo.
 - **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: “Não, obrigado” renderizado abaixo da dobra gera achado; as quatro variantes ocultas não geram; a evidência ignora o trecho oculto na mesma página. `test_overlay_detection.py` (6 casos) e `test_scraper_routing.py` (6 casos) seguem passando. A conferência em página real continua opcional para o usuário.
 
+### [x] Microsprint 14.21 — Ignorar preço de referência não renderizado
+- **Motivo**: a regra de ancoragem ainda localizava `del`/`s`/`price-old` no HTML estático; um preço de referência oculto podia sustentar o achado — última regra ainda baseada em markup estático.
+- **Escopo**: coletar no Playwright os elementos de preço antigo efetivamente renderizados (mesma verificação de ocultação das demais coletas, sem exigir posição na viewport) junto com os blocos ancestrais compactos (até 4 níveis, 180 caracteres) que a regra já usava. A regra consome `rendered_price_evidence` e mantém o mesmo critério de valores distintos da 14.13, com fallback estático fora do fluxo de navegador.
+- **Privacidade e segurança**: limites de 100 elementos candidatos, 10 blocos e 200 caracteres por trecho; nada é enviado ao LLM, registrado em log nem persistido.
+- **Fora do escopo**: mudar o critério de comparação de preços, validar desconto real, cobrir outros formatos de moeda ou alterar score/severidade.
+- **Critérios para concluir**: `del`/`price-old` renderizado com preço distinto no mesmo bloco, inclusive abaixo da dobra, gera achado; elemento oculto por estilo/`hidden`/`aria-hidden` não gera; `del` oculto com preço atual visível não gera; valores repetidos continuam sem achado (regressão 14.13).
+- **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: bloco `del`+preço atual abaixo da dobra gera achado; quatro variantes ocultas não geram; `R$ 79,99` repetido não gera. Regressões de overlay e routing seguem passando. A conferência em página real continua opcional para o usuário.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)

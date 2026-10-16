@@ -225,6 +225,7 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
         visible_countdown_evidence=page_data.countdown_evidence,
         visible_preselection_evidence=page_data.preselection_evidence,
         rendered_text_candidates=page_data.rendered_text_evidence,
+        rendered_price_contexts=page_data.rendered_price_evidence,
     )
 
     # ── 4. Análise semântica opcional via LLM ─────────────────

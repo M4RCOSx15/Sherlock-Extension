@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Validação local das microsprints 14.16–14.20; não faz chamadas de rede.
+"""Validação local das microsprints 14.16–14.21; não faz chamadas de rede.
 
 Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.16: timer só gera urgência alta quando visível e com valor temporal.
@@ -7,6 +7,7 @@ Cobre os casos descritos em docs/antigravity/MICROSPRINTS.md:
   - 14.18: chamadas vagas são urgência; escassez exige quantidade/estoque.
   - 14.19: escassez usa somente texto renderizado (inclusive abaixo da dobra).
   - 14.20: confirmshaming usa a mesma lista renderizada (links inclusos).
+  - 14.21: ancoragem exige elemento de preço antigo renderizado.
 
 Rodar com: python backend/test_rendered_evidence.py
 """
@@ -24,6 +25,7 @@ from playwright.async_api import async_playwright
 
 from backend.analyzer import analyze
 from backend.scraper import (
+    collect_rendered_price_contexts,
     collect_rendered_text_candidates,
     collect_visible_consent_choices,
     collect_visible_countdown_evidence,
@@ -42,6 +44,7 @@ async def analyze_page(page) -> list:
         await collect_visible_countdown_evidence(page),
         await collect_visible_preselection_evidence(page),
         await collect_rendered_text_candidates(page),
+        await collect_rendered_price_contexts(page),
     )
 
 
@@ -262,6 +265,48 @@ async def main() -> None:
                 f"Evidência citou recusa oculta: {findings!r}"
             )
             print("[OK] 14.20 evidência ignora o trecho oculto na mesma página")
+
+            # ── 14.21: ancoragem só considera preço antigo renderizado ──
+            await page.set_content("""
+              <main>
+                <div style="height:5000px"></div>
+                <div><del>R$ 99,90</del> R$ 79,90</div>
+              </main>
+            """)
+            findings = await analyze_page(page)
+            anchoring = [f for f in findings if f.id == "price_anchoring"]
+            assert len(anchoring) == 1, (
+                f"Preço antigo renderizado abaixo da dobra não gerou achado: {findings!r}"
+            )
+            print("[OK] 14.21 preço antigo renderizado abaixo da dobra gera achado")
+
+            for descricao, html in (
+                ("display:none",
+                 '<div style="display:none"><del>R$ 99,90</del> R$ 79,90</div>'),
+                ("visibility:hidden",
+                 '<div style="visibility:hidden"><del>R$ 99,90</del> R$ 79,90</div>'),
+                ("aria-hidden em ancestral",
+                 '<div aria-hidden="true"><del>R$ 99,90</del> R$ 79,90</div>'),
+                ("del oculto com preço atual visível",
+                 '<span style="display:none"><del>R$ 99,90</del></span>'
+                 '<p>R$ 79,90</p>'),
+            ):
+                await page.set_content(f"<main>{html}</main>")
+                findings = await analyze_page(page)
+                assert "price_anchoring" not in ids(findings), (
+                    f"Preço antigo oculto por {descricao} gerou achado: {findings!r}"
+                )
+            print("[OK] 14.21 preço antigo oculto não gera achado")
+
+            # Regressão 14.13: mesmo valor repetido não é ancoragem.
+            await page.set_content(
+                "<main><div><del>R$ 79,99</del> R$ 79,99</div></main>"
+            )
+            findings = await analyze_page(page)
+            assert "price_anchoring" not in ids(findings), (
+                f"Mesmo valor repetido gerou ancoragem: {findings!r}"
+            )
+            print("[OK] 14.21 mesmo valor repetido continua sem achado")
         finally:
             await browser.close()
 
