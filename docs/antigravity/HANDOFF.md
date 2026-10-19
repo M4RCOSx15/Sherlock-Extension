@@ -1,7 +1,7 @@
 # RASTRO — Handoff de Sessão
 
 ## Resumo Executivo
-O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.23. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.23 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
+O projeto do SaaS RASTRO (Auditor de Dark Patterns Web) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.24. O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.23 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
 
 **Checkpoint Git:** em 2026-10-16, o README reescrito foi enviado a `main` (`da5885f`) e `develop` (`13041a8`), e o estado completo do MVP foi commitado na `develop` (`d57d813`). O working tree da `main` segue com as mesmas alterações não commitadas por escolha do usuário; a `develop` preserva o histórico antigo da extensão por decisão dele.
 
@@ -160,6 +160,12 @@ Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e den
 A variante textual de urgência avaliava o `body.innerText` completo, que inclui texto fora da tela e oculto por CSS. No fluxo com navegador, a regra passa a avaliar `rendered_text_candidates` — a mesma lista de escassez e confirmshaming. O sinal alto de timer visível e o fallback estático fora do navegador foram preservados; o contrato não mudou. Com isso, todo achado textual exige elemento renderizado.
 
 Em 2026-10-16, `backend/test_rendered_evidence.py` validou no Python local e dentro do container reconstruído: “Corra!” fora da tela e oculto não geram achado; “Corra para aproveitar!” renderizado segue gerando urgência média; os casos de timer da 14.16 passam.
+
+## Microsprint 14.24 concluída — Contrato reconciliado com as regras renderizadas
+
+`docs/api-contract.md` (v0.3) ainda descrevia apenas a coleta renderizada da escassez e omitia confirmshaming, urgência textual e ancoragem baseadas em evidência renderizada, além da exclusão de texto estacionado fora da tela. O contrato foi atualizado para v0.4 e o comentário do schema `Finding.engine` deixou de listar o valor `stub` inexistente — só `deterministic` e `llm` são emitidos.
+
+Em 2026-10-19, `backend/test_rendered_evidence.py` (24/24) e `backend/test_ssrf.py` (30/30) passaram no Python local; não houve mudança funcional a validar no container.
 
 ## Microsprint 13.2 concluída — assimetria em consentimento
 

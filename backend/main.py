@@ -88,7 +88,7 @@ class Finding(BaseModel):
     evidence: str
     dom_reference: str | None = None  # positional path in the captured DOM, without page attributes
     phase: int          # 1 = determinístico | 2 = LLM
-    engine: str         # "deterministic" | "llm" | "stub"
+    engine: str         # "deterministic" | "llm"
 
 
 class ScanMeta(BaseModel):

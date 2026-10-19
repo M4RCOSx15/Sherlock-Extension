@@ -269,6 +269,14 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Critérios para concluir**: frase de urgência em elemento oculto ou estacionado fora da tela não gera achado; frase renderizada continua gerando urgência média; timer visível segue gerando urgência alta.
 - **Validação**: em 2026-10-16, `backend/test_rendered_evidence.py` passou no Python local e dentro do container `rastro-api-1` reconstruído: “Corra!” fora da tela e oculto não geram achado; “Corra para aproveitar!” renderizado gera urgência média; os casos de timer da 14.16 seguem passando. A conferência em página real continua opcional para o usuário.
 
+### [x] Microsprint 14.24 — Reconciliar contrato com as regras renderizadas
+- **Motivo**: `docs/api-contract.md` (v0.3) ainda descrevia só a coleta renderizada da escassez e omitia as mudanças das 14.20–14.23; o schema em `backend/main.py` também listava um valor `engine="stub"` inexistente.
+- **Escopo**: revisar o contrato contra `main.py`/`analyzer.py`; atualizar a seção de regras para registrar que `confirmshaming`, a urgência textual e `price_anchoring` também consomem evidência renderizada e que trechos estacionados fora da tela são descartados; corrigir o comentário do schema para os motores realmente emitidos (`deterministic`, `llm`); bump do documento para v0.4.
+- **Privacidade e segurança**: nenhuma mudança funcional; apenas documentação e comentário.
+- **Fora do escopo**: alterar campos, respostas de erro ou comportamento das regras.
+- **Critérios para concluir**: a seção de regras do contrato descreve as 7 regras como implementadas; o comentário de `Finding.engine` lista só valores emitidos; suítes seguem passando.
+- **Validação**: em 2026-10-19, `backend/test_rendered_evidence.py` (24/24) e `backend/test_ssrf.py` (30/30) passaram no Python local; o contrato foi relido contra o código final. Não houve mudança funcional a validar no container.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)
