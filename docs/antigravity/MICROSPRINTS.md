@@ -292,5 +292,5 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)
-- **Deploy**: Depois do gate de segurança da Sprint 12, configurar deploy na Oracle Cloud (VPS).
+- **Deploy**: Depois do gate de segurança da Sprint 12, configurar deploy na Oracle Cloud (VPS). **Proposta de escopo em `docs/antigravity/DEPLOY.md` — aguarda autorização explícita do usuário; inclui rate limit e cookie `Secure` como pré-requisitos de exposição.**
 - **Persistência remota**: banco para contas e sincronização de relatórios, em microsprint futura separada; histórico e exportação da 14.x são locais e não substituem esse trabalho. **Proposta de escopo em `docs/antigravity/PERSISTENCIA.md` — aguarda aprovação do usuário; proposta não autoriza implementação.**

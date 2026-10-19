@@ -196,7 +196,7 @@ Revisão manual do diff e `git diff --check` concluídos. O usuário reconstruiu
 Se houver uma próxima sessão ou retomada do desenvolvimento, os vetores de avanço seriam:
 1. **Histórico e exportação locais**: usam `localStorage` e download Markdown; não sincronizam entre dispositivos.
 2. **Camada de Dados remota:** contas e histórico sincronizado exigirão banco e microsprint de privacidade própria. Proposta de escopo pronta em `docs/antigravity/PERSISTENCIA.md` (decisão pendente: histórico anônimo × contas); aguarda aprovação para implementar.
-3. **Módulo de Deploy:** Planejar e validar hospedagem em VPS (Linux) em uma microsprint própria antes de expor publicamente.
+3. **Módulo de Deploy:** Planejar e validar hospedagem em VPS (Linux) em uma microsprint própria antes de expor publicamente. Proposta de escopo pronta em `docs/antigravity/DEPLOY.md` (rate limit + cookie `Secure` como pré-requisitos); aguarda autorização.
 
 ## Dicas Rápidas
 - *Windows Asyncio:* Nunca use `uvicorn backend.main:app` direto sem entender o impacto no loop do SO. Confie no `run_server.py`.
