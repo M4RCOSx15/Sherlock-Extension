@@ -289,6 +289,14 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Critérios para concluir**: scan grava resumo acessível via `GET /api/history`; outra identidade não vê nem remove itens alheios (404); retenção mantém 100; scan sobrevive a falha de banco; contrato v0.5 documenta os endpoints.
 - **Validação**: `backend/test_history.py` (18/18) passou no Python local e dentro do container `rastro-api-1` reconstruído; sintaxe do frontend conferida com `node --check`; regressões `test_rendered_evidence.py` e demais suítes seguem verdes. Em 2026-10-19, a persistência foi confirmada ponta a ponta no Compose: item inserido no volume `api-data` permaneceu acessível por `GET /api/history` após `docker compose restart api`, e `DELETE /api/history` o removeu (204). Observação: `docker compose exec` roda como root e, por `cap_drop: ALL`, não escreve em `/data` — probes devem usar `--user pwuser`. A conferência visual do histórico na interface fica para o usuário.
 
+### [x] Microsprint 15.2 — Rate limit e cookie Secure (pré-requisitos de exposição)
+- **Motivo**: a proposta `docs/antigravity/DEPLOY.md` identificou que abrir `/api/scan` publicamente sem controle de taxa permite abuso (cada scan abre um Chromium) e que o cookie precisa de `Secure` em HTTPS. Ambos são implementáveis e testáveis localmente, sem deploy.
+- **Escopo**: janela deslizante em memória por IP de origem, `SCAN_RATE_LIMIT_PER_MINUTE` (padrão 10, 0 desativa), avaliada antes de qualquer I/O; exceder retorna `429` com `detail.code="RATE_LIMIT"` no formato de erro do scanner; cookie `rastro_hid` emite `Secure` quando `APP_ENV=production` (loopback segue confiável para o navegador, então o Docker local não quebra).
+- **Privacidade e segurança**: o contador em memória guarda apenas timestamps por IP e expira em 60 s; nada é persistido.
+- **Fora do escopo**: rate limit distribuído, banimento, limite por cookie, CAPTCHA, reverse proxy (fatia 15.3 do DEPLOY.md, que exige autorização).
+- **Critérios para concluir**: a (limit+1)ª requisição do mesmo IP retorna 429 sem abrir navegador; outro IP não é afetado; cookie sem `Secure` em development e com `Secure` em production; contrato v0.6 documenta 429 e a flag.
+- **Validação**: em 2026-10-19, `backend/test_history.py` (22/22) passou no Python local e dentro do container `rastro-api-1` reconstruído — incluindo 429 RATE_LIMIT, limite por IP e flags do cookie nos dois ambientes.
+
 ---
 
 ## Fases Futuras (Fora do primeiro checkpoint)

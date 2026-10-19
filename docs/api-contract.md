@@ -1,6 +1,6 @@
 # RASTRO — Contrato implementado da API
 
-> **Versão:** 0.5
+> **Versão:** 0.6
 > **Atualizado em:** 2026-10-19
 > **Estado:** descreve o comportamento implementado em `backend/main.py`, incluindo a chamada semântica opcional via provedor compatível com OpenAI e o histórico anônimo local (sem contas).
 
@@ -35,7 +35,9 @@ Request:
 }
 ```
 
-O campo `url` é uma string com limite de 2.048 caracteres. O backend remove espaços nas pontas, rejeita entradas acima do limite e acrescenta `https://` quando o valor não começa com `http://` ou `https://`; a URL normalizada também precisa respeitar o limite. A rejeição ocorre na validação do request, antes da verificação anti-SSRF e da abertura do navegador. A interface aplica a mesma validação para mostrar uma mensagem imediata e também exibe erros `422` de validação retornados pela API; o limite do backend é a proteção autoritativa.
+O campo `url` é uma string com limite de 2.048 caracteres. O backend remove espaços nas pontas, rejeita entradas acima do limite e acrescenta `https://` quando o valor não começa com `http://` ou `https://`; a URL normalizada também precisa respeitar o limite. A rejeição ocorre na validação do request, antes da verificação anti-SSRF e da abertura do navegador.
+
+O endpoint tem **rate limit por IP de origem**: no máximo `SCAN_RATE_LIMIT_PER_MINUTE` análises por minuto (padrão 10, em memória — uma janela deslizante por instância). O limite é avaliado antes de qualquer I/O; ao estourar, retorna `429` com `detail.code = "RATE_LIMIT"` sem abrir o navegador. A interface aplica a mesma validação para mostrar uma mensagem imediata e também exibe erros `422` de validação retornados pela API; o limite do backend é a proteção autoritativa.
 
 Na resposta de sucesso, `url` é a URL solicitada e `domain` é o domínio da página final carregada, depois de redirects. Eles podem diferir. A interface e os relatórios locais usam `domain` para identificar o conteúdo efetivamente analisado; o endereço completo não é salvo no histórico nem no Markdown.
 
@@ -113,14 +115,15 @@ Os erros lançados com `HTTPException` aparecem no corpo dentro de `detail`, com
 | `422` | Destino rejeitado pela validação anti-SSRF | `detail` contém `status`, `code`, `message` e `detail`. |
 | `403` | Página devolveu `403` ou `429`, interpretada como bloqueio anti-bot | `detail` contém os campos do erro do scanner. |
 | `404` | Item de histórico inexistente ou de outra identidade | `detail` contém `code: "HISTORY_NOT_FOUND"`. |
+| `429` | Rate limit de análise excedido para o IP | `detail` contém `code: "RATE_LIMIT"`. |
 | `503` | Falha ou indisponibilidade do scraper | `detail` contém os campos do erro do scanner. |
 | `500` | Erro não tratado | Resposta padrão de erro do FastAPI/Uvicorn. |
 
-Não há rate limit implementado no endpoint: `429` não é um erro emitido pelo controle de taxa do RASTRO. Também não há tratamento customizado `415`.
+A página de destino bloqueada por anti-bot (`403`/`429` devolvidos pelo site) continua saindo como `403` do scanner — distinta do `429` de rate limit do próprio RASTRO. Também não há tratamento customizado `415`.
 
 ### Histórico anônimo (sem contas)
 
-O RASTRO identifica o navegador por um cookie opaco `rastro_hid` (32 caracteres hex, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` de 1 ano), emitido na primeira resposta bem-sucedida da API quando ausente ou inválido. Não há cadastro, login nem dado pessoal: o cookie é apenas um identificador aleatório. Perder ou apagar o cookie torna o histórico anterior inacessível.
+O RASTRO identifica o navegador por um cookie opaco `rastro_hid` (32 caracteres hex, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` de 1 ano; a flag `Secure` é emitida quando `APP_ENV=production` — navegadores tratam loopback como origem confiável, então o Docker local continua funcionando sobre HTTP), emitido na primeira resposta bem-sucedida da API quando ausente ou inválido. Não há cadastro, login nem dado pessoal: o cookie é apenas um identificador aleatório. Perder ou apagar o cookie torna o histórico anterior inacessível.
 
 Todo `/api/scan` bem-sucedido grava automaticamente um **resumo** vinculado a essa identidade: domínio final, domínio solicitado, data, score, risco, achados (tipo, evidência limitada a 240 caracteres, referência de DOM, severidade, motor) e metadados de execução. URL completa, HTML e texto integral da página **não são persistidos**. A retenção é de no máximo 100 resumos por identidade — os mais antigos são descartados. A gravação é best-effort: falha de banco não altera a resposta do scan.
 

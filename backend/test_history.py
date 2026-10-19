@@ -35,13 +35,14 @@ def check(name, condition, extra=""):
         _RESULTS.append(f"  [FALHOU] {name} {extra}")
 
 
-def make_request(path, cookies=None):
+def make_request(path, cookies=None, client="10.0.0.9"):
     headers = []
     if cookies:
         headers.append((b"cookie", f"{db.COOKIE_NAME}={cookies}".encode()))
     return Request({
         "type": "http", "method": "GET", "path": path,
         "query_string": b"", "headers": headers,
+        "client": (client, 5555),
     })
 
 
@@ -150,7 +151,48 @@ def run_tests():
     check("retenção preserva os mais recentes",
           db.list_history(owner_b)[0]["domain"] == f"site{db.HISTORY_LIMIT + 4}.com")
 
-    # 8. Falha de banco não derruba o scan
+    # 8. Rate limit: estoura após N scans por minuto por IP
+    main.SCAN_RATE_LIMIT_PER_MINUTE = 2
+    try:
+        for _ in range(2):
+            asyncio.run(main.scan_url(
+                main.ScanRequest(url="https://exemplo.com/pagina"),
+                make_request("/api/scan", client="10.9.9.9"), Response(),
+            ))
+        blocked = False
+        try:
+            asyncio.run(main.scan_url(
+                main.ScanRequest(url="https://exemplo.com/pagina"),
+                make_request("/api/scan", client="10.9.9.9"), Response(),
+            ))
+        except HTTPException as exc:
+            blocked = exc.status_code == 429 and exc.detail["code"] == "RATE_LIMIT"
+        check("scan acima do limite retorna 429 RATE_LIMIT", blocked)
+
+        # Outro IP não é afetado pelo limite do primeiro
+        res = asyncio.run(main.scan_url(
+            main.ScanRequest(url="https://exemplo.com/pagina"),
+            make_request("/api/scan", client="10.9.9.10"), Response(),
+        ))
+        check("limite é por IP de origem", res.status == "ok")
+    finally:
+        main.SCAN_RATE_LIMIT_PER_MINUTE = 10
+        main._scan_hits.clear()
+
+    # 9. Cookie ganha flag Secure apenas em produção
+    response_dev = Response()
+    main.APP_ENV = "development"
+    main._ensure_owner(make_request("/api/history"), response_dev)
+    main.APP_ENV = "production"
+    response_prod = Response()
+    main._ensure_owner(make_request("/api/history"), response_prod)
+    main.APP_ENV = "development"
+    check("cookie sem Secure em development",
+          "secure" not in response_dev.headers.get("set-cookie", "").lower())
+    check("cookie com Secure em production",
+          "secure" in response_prod.headers.get("set-cookie", "").lower())
+
+    # 10. Falha de banco não derruba o scan
     original_path = os.environ["RASTRO_DB_PATH"]
     # test.db é um arquivo — usá-lo como diretório faz a conexão falhar.
     os.environ["RASTRO_DB_PATH"] = os.path.join(_tmpdir, "test.db", "sub", "x.db")

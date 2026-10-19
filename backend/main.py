@@ -37,6 +37,10 @@ APP_ENV     = os.getenv("APP_ENV", "development")
 APP_PORT    = int(os.getenv("APP_PORT", "8000"))
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")]
 MAX_URL_LENGTH = 2048
+SCAN_RATE_LIMIT_PER_MINUTE = int(os.getenv("SCAN_RATE_LIMIT_PER_MINUTE", "10"))
+
+# Janela deslizante em memória: scans por IP de origem (instância única).
+_scan_hits: dict[str, list[float]] = {}
 
 # ── Aplicação ─────────────────────────────────────────────────
 @asynccontextmanager
@@ -152,8 +156,35 @@ def _ensure_owner(request: Request, response: Response) -> str:
             httponly=True,
             samesite="lax",
             path="/",
+            # Em produção o cookie só trafega por HTTPS. Navegadores tratam
+            # loopback (127.0.0.1/localhost) como origem confiável, então o
+            # modo Docker local continua funcionando sobre HTTP.
+            secure=APP_ENV == "production",
         )
     return owner
+
+
+def _enforce_scan_rate_limit(request: Request) -> None:
+    """Janela deslizante de 60 s por IP de origem, em memória."""
+    limit = SCAN_RATE_LIMIT_PER_MINUTE
+    if limit <= 0:
+        return
+    client_ip = request.client.host if request.client else "local"
+    now = time.monotonic()
+    hits = [t for t in _scan_hits.get(client_ip, []) if now - t < 60]
+    if len(hits) >= limit:
+        _scan_hits[client_ip] = hits
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "status": "error",
+                "code": "RATE_LIMIT",
+                "message": "Muitas análises em sequência. Aguarde alguns instantes.",
+                "detail": None,
+            },
+        )
+    hits.append(now)
+    _scan_hits[client_ip] = hits
 
 
 def _score_to_risk_level(score: int) -> str:
@@ -207,6 +238,9 @@ async def scan_url(request: ScanRequest, http_request: Request, response: Respon
     **Microsprint 15.1:** grava resumo anônimo no histórico local (SQLite).
     """
     started_at = time.monotonic()
+
+    # ── 0. Controle de taxa (Microsprint 15.2) ────────────────
+    _enforce_scan_rate_limit(http_request)
 
     # ── 1. Blindagem anti-SSRF ────────────────────────────────
     # DEVE ser a primeira verificação — antes de qualquer I/O de rede.

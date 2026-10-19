@@ -59,6 +59,6 @@
 
 ## 7. Fatias sugeridas (quando autorizado)
 
-1. **15.2** — rate limit na API + `Secure` condicional no cookie + testes (`test_history.py` estendido).
+1. **15.2** — ✅ concluída em 2026-10-19: rate limit na API + `Secure` condicional no cookie + testes (`test_history.py` estendido, 22/22).
 2. **15.3** — provisionar VPS, DNS e Caddy; deploy autorizado; reexecutar verificação de egress + smoke público.
 3. **15.4** — contrato v0.6 + documentação de operação (logs, restart, rollback).

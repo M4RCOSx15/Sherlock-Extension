@@ -1,7 +1,7 @@
 # RASTRO — Handoff de Sessão
 
 ## Resumo Executivo
-O projeto RASTRO (site de verificação de dark patterns, estilo VirusTotal — sem contas, decisão do usuário em 2026-10-19) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.24 + 15.1 (histórico anônimo no servidor). O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.23 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
+O projeto RASTRO (site de verificação de dark patterns, estilo VirusTotal — sem contas, decisão do usuário em 2026-10-19) concluiu as Sprints 0–13.3 e as Microsprints 14.1–14.24 + 15.1–15.2 (histórico anônimo no servidor; rate limit e cookie Secure). O usuário confirmou a mensagem de limite para URL acima de 2.048 caracteres e os quatro casos locais de classificação lexical da 14.18. Em 2026-10-16, a imagem Docker foi reconstruída e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.23 tanto no Python local quanto dentro do container `rastro-api-1`; a conferência visual em página real ficou opcional para o usuário. A categoria segura de falha do LLM ainda não foi observada em indisponibilidade real. A plataforma usa frontend Vanilla HTML/CSS/JS e backend Python (FastAPI + Playwright). O fluxo não está pronto para exposição pública.
 
 **Checkpoint Git:** em 2026-10-16, o README reescrito foi enviado a `main` (`da5885f`) e `develop` (`13041a8`), e o estado completo do MVP foi commitado na `develop` (`d57d813`). O working tree da `main` segue com as mesmas alterações não commitadas por escolha do usuário; a `develop` preserva o histórico antigo da extensão por decisão dele.
 
@@ -174,6 +174,12 @@ Decisão do usuário: o RASTRO é um site de verificação pontual estilo VirusT
 Implementado: cookie opaco `rastro_hid` (HttpOnly, SameSite=Lax, 1 ano); `backend/db.py` com SQLite em `RASTRO_DB_PATH`; auto-save do resumo a cada `/api/scan`; `GET /api/history`, `DELETE /api/history/{id}` e `DELETE /api/history` escopados à identidade; retenção de 100 itens; gravação best-effort. URL completa, HTML e texto integral continuam fora do banco. No Compose, volume `api-data` montado em `/data` (criado no Dockerfile com dono `pwuser`). O frontend lista o histórico do servidor e perdeu o botão "SALVAR NO HISTÓRICO" (auto-save); o `localStorage` antigo fica órfão e não é migrado. Contrato v0.5.
 
 `backend/test_history.py` (18/18) passou no Python local e dentro do container `rastro-api-1` reconstruído; sintaxe do frontend conferida com `node --check`; suites anteriores seguem verdes. Persistência confirmada ponta a ponta: item inserido no volume `api-data` continuou listado após `docker compose restart api` e foi removido por `DELETE /api/history` (204). Nota operacional: `docker compose exec` roda como root e, por `cap_drop: ALL`, não escreve em `/data` — usar `--user pwuser` para probes. A conferência visual do histórico na interface fica para o usuário.
+
+## Microsprint 15.2 concluída — Rate limit e cookie Secure
+
+Primeira fatia da proposta `DEPLOY.md`, implementável localmente: `/api/scan` limita análises por janela deslizante de 60 s por IP (`SCAN_RATE_LIMIT_PER_MINUTE`, padrão 10, em memória) e retorna `429`/`RATE_LIMIT` no formato de erro do scanner antes de abrir o navegador; o cookie `rastro_hid` emite `Secure` quando `APP_ENV=production` — loopback continua funcionando sobre HTTP no Docker local. Contrato v0.6.
+
+`backend/test_history.py` (22/22) passou no Python local e dentro do container `rastro-api-1` reconstruído. Restam do DEPLOY.md: VPS/Caddy/DNS e verificação de egress em produção — exigem autorização explícita.
 
 ## Microsprint 13.2 concluída — assimetria em consentimento
 

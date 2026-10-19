@@ -3,7 +3,7 @@
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-10-19
-- **Sprint Atual/Concluída**: **Microsprints 14.1–14.24 + 15.1 (histórico anônimo, modelo A) concluídas e validadas; checkpoint commitado na branch `develop`**.
+- **Sprint Atual/Concluída**: **Microsprints 14.1–14.24 + 15.1–15.2 (histórico anônimo e rate limit) concluídas e validadas; checkpoint commitado na branch `develop`**.
 - **Fase**: MVP local com análise determinística e etapa semântica Gemini opcional. A análise OLX.com.br mostrou 3.152 elementos, 12.097 caracteres visíveis e um finding de comparação de preços distintos; o Gemini atingiu limite de uso e o fallback determinístico concluiu. A imagem Docker foi reconstruída em 2026-10-16 e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.23 dentro do container; as 7 regras determinísticas agora consomem somente sinais renderizados pelo navegador e ignoram texto oculto ou estacionado fora da tela.
 
 ## O Que Foi Entregue (MVP Completo)
@@ -73,6 +73,7 @@ curl.exe -sS http://127.0.0.1:8000/api/health
 - **14.23**: concluída e validada em 2026-10-16; a urgência textual avalia `rendered_text_candidates` no fluxo do navegador em vez do `innerText` integral, mantendo o timer visível como sinal alto e o fallback estático fora do navegador. `test_rendered_evidence.py` confirmou urgência fora da tela/oculta sem achado e urgência renderizada como média, no Python local e dentro do container.
 - **14.24**: concluída e validada em 2026-10-19; `docs/api-contract.md` (v0.4) passou a descrever confirmshaming, urgência textual e ancoragem sobre evidência renderizada, incluindo a exclusão de texto estacionado fora da tela; o comentário do schema `Finding.engine` deixou de listar o valor `stub` inexistente. `test_rendered_evidence.py` (24/24) e `test_ssrf.py` (30/30) passaram no Python local; sem mudança funcional.
 - **15.1**: concluída e validada em 2026-10-19; histórico anônimo por cookie `rastro_hid` + SQLite (modelo A, sem contas — decisão VirusTotal do usuário). Auto-save no scan, `GET/DELETE /api/history`, retenção 100, volume `api-data` no Compose; frontend lista o histórico do servidor e perdeu o botão de salvar. `test_history.py` (18/18) no Python local e no container; `GET`/`DELETE` reais confirmados via curl; item persistiu após `docker compose restart api`. Contrato v0.5; sintaxe JS ok.
+- **15.2**: concluída e validada em 2026-10-19; pré-requisitos de exposição do `DEPLOY.md` implementados — janela deslizante por IP (`SCAN_RATE_LIMIT_PER_MINUTE`, padrão 10) retornando 429/`RATE_LIMIT` antes de I/O, e cookie `Secure` quando `APP_ENV=production`. `test_history.py` (22/22) no Python local e no container; contrato v0.6.
 - **Pontuação heurística**: o score soma pesos de regras e não é uma probabilidade calibrada de manipulação nem prova de intenção.
 - O código original legado da extensão Chrome (arquivos na raiz como manifest e popups) não tem mais serventia, o foco mudou 100% para a plataforma Web SaaS.
 - A máquina Windows local exige a flag `loop="none"` e uso da `WindowsProactorEventLoopPolicy` para que a integração Uvicorn + Playwright funcione adequadamente, garantido pelo `run_server.py`.
