@@ -43,7 +43,7 @@ curl.exe -sS http://127.0.0.1:8000/api/health
 ## Próximos Passos (Backlog - Fases Futuras)
 - **Próximo planejamento**: escolher a próxima melhoria de produto entre qualidade/rastreabilidade dos achados, persistência remota e preparação de deploy. Persistência e deploy exigem escopo e validações próprias.
 - **Limite do sinal de consentimento**: assimetria observável é um indício, não prova de intenção manipulativa nem avaliação jurídica. O score segue heurístico.
-- **Persistência remota**: criar banco para contas, sincronização e exportação em microsprint separada.
+- **Persistência remota**: criar banco para contas, sincronização e exportação em microsprint separada. Proposta de escopo redigida em 2026-10-19 (`docs/antigravity/PERSISTENCIA.md`) — aguarda aprovação do usuário e a decisão entre histórico anônimo e contas antes de implementar.
 - **Deploy em Nuvem**: Mover para um ambiente de produção (VPS Linux, Docker, orquestração).
 
 ## Restrições ou Problemas Conhecidos Atuais

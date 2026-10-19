@@ -187,7 +187,7 @@ Revisão manual do diff e `git diff --check` concluídos. O usuário reconstruiu
 ## Próximos Desafios (Roadmap / Fases 2+)
 Se houver uma próxima sessão ou retomada do desenvolvimento, os vetores de avanço seriam:
 1. **Histórico e exportação locais**: usam `localStorage` e download Markdown; não sincronizam entre dispositivos.
-2. **Camada de Dados remota:** contas e histórico sincronizado exigirão banco e microsprint de privacidade própria.
+2. **Camada de Dados remota:** contas e histórico sincronizado exigirão banco e microsprint de privacidade própria. Proposta de escopo pronta em `docs/antigravity/PERSISTENCIA.md` (decisão pendente: histórico anônimo × contas); aguarda aprovação para implementar.
 3. **Módulo de Deploy:** Planejar e validar hospedagem em VPS (Linux) em uma microsprint própria antes de expor publicamente.
 
 ## Dicas Rápidas
