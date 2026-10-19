@@ -20,7 +20,11 @@ RUN python -m pip install --no-cache-dir -r /app/backend/requirements.txt \
 
 RUN useradd --uid 1000 --user-group --create-home --shell /usr/sbin/nologin pwuser
 
-COPY --chown=pwuser:pwuser backend/__init__.py backend/main.py backend/security.py backend/scraper.py backend/analyzer.py backend/llm_analyzer.py /app/backend/
+# Diretório do banco SQLite do histórico anônimo; o volume nomeado do
+# Compose herda estas permissões para o usuário sem privilégios.
+RUN mkdir -p /data && chown pwuser:pwuser /data
+
+COPY --chown=pwuser:pwuser backend/__init__.py backend/main.py backend/security.py backend/scraper.py backend/analyzer.py backend/llm_analyzer.py backend/db.py /app/backend/
 COPY --chown=pwuser:pwuser frontend/ /app/frontend/
 COPY docker/api-entrypoint.sh /usr/local/bin/api-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/api-entrypoint.sh

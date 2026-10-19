@@ -19,6 +19,9 @@ services:
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+      RASTRO_DB_PATH: /data/rastro.db
+    volumes:
+      - api-data:/data
     ports:
       - target: 8000
         published: "8000"
@@ -91,6 +94,10 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+
+volumes:
+  # Banco SQLite do histórico anônimo (sobrevive a rebuild/restart).
+  api-data:
 
 networks:
   # API has no direct route to the internet. Only the proxy is on both nets.

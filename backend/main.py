@@ -9,6 +9,7 @@ import asyncio
 import os
 import sys
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -18,10 +19,11 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
+from backend import db
 from backend.analyzer import ScanFinding, analyze, compute_score, find_evidence_dom_references, rules_count
 from backend.llm_analyzer import analyze_semantically
 from backend.scraper import ScraperError, fetch_page
@@ -37,6 +39,16 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",")]
 MAX_URL_LENGTH = 2048
 
 # ── Aplicação ─────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # O histórico é best-effort: uma falha de banco não impede a API de subir.
+    try:
+        db.init_db()
+    except Exception:
+        pass
+    yield
+
+
 app = FastAPI(
     title="RASTRO API",
     description=(
@@ -47,6 +59,7 @@ app = FastAPI(
     version=APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -127,6 +140,21 @@ class ErrorResponse(BaseModel):
 
 
 # ── Helpers ───────────────────────────────────────────────────
+def _ensure_owner(request: Request, response: Response) -> str:
+    """Identidade anônima do navegador: cookie opaco, sem dados pessoais."""
+    owner = request.cookies.get(db.COOKIE_NAME)
+    if not db.is_owner_token(owner):
+        owner = db.new_owner_token()
+        response.set_cookie(
+            db.COOKIE_NAME,
+            owner,
+            max_age=365 * 24 * 3600,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
+    return owner
+
 
 def _score_to_risk_level(score: int) -> str:
     """Converte score numérico em label conforme contrato."""
@@ -166,7 +194,7 @@ def health_check() -> HealthResponse:
         503: {"model": ErrorResponse, "description": "Página inacessível"},
     },
 )
-async def scan_url(request: ScanRequest) -> ScanResponse:
+async def scan_url(request: ScanRequest, http_request: Request, response: Response) -> ScanResponse:
     """
     Recebe uma URL e retorna um relatório de dark patterns detectados.
 
@@ -176,6 +204,7 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
     **Sprint 13:** etapa semântica opcional com fallback determinístico.
     **Microsprint 13.2:** verifica assimetria observável nas opções de consentimento.
     **Microsprint 13.3:** expõe apenas uma categoria segura quando o LLM falha.
+    **Microsprint 15.1:** grava resumo anônimo no histórico local (SQLite).
     """
     started_at = time.monotonic()
 
@@ -261,6 +290,43 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
         for index, f in enumerate(raw_findings)
     ]
 
+    duration_ms = round((time.monotonic() - started_at) * 1000)
+
+    # ── 5. Histórico anônimo (modelo A — sem contas) ───────────
+    # Guarda somente o recorte exibido no relatório: domínio, score,
+    # achados curtos e metadados. URL completa e texto da página não
+    # são persistidos. Falha de banco não derruba a análise.
+    owner = _ensure_owner(http_request, response)
+    report = {
+        "scannedAt": now_utc,
+        "domain": domain,
+        "requestedDomain": (urlparse(request.url).hostname or "").removeprefix("www.") or None,
+        "score": score,
+        "riskLevel": _score_to_risk_level(score),
+        "scanEngine": "hybrid" if llm_used else "deterministic",
+        "llmStatus": llm_result.status,
+        "llmUnavailableReason": llm_result.unavailable_reason,
+        "durationMs": duration_ms,
+        "domElementsScanned": page_data.dom_element_count,
+        "rulesApplied": rules_count(),
+        "visibleTextCharacters": len(page_data.text_content),
+        "findings": [
+            {
+                "id": f.id,
+                "type": f.type,
+                "evidence": f.evidence[:240],
+                "domReference": dom_references[i],
+                "severity": f.severity,
+                "engine": f.engine,
+            }
+            for i, f in enumerate(raw_findings[:10])
+        ],
+    }
+    try:
+        db.add_history_item(owner, report)
+    except Exception:
+        pass
+
     return ScanResponse(
         status="ok",
         url=request.url,
@@ -274,12 +340,65 @@ async def scan_url(request: ScanRequest) -> ScanResponse:
             engine="hybrid" if llm_used else "deterministic",
             llm_status=llm_result.status,
             llm_unavailable_reason=llm_result.unavailable_reason,
-            duration_ms=round((time.monotonic() - started_at) * 1000),
+            duration_ms=duration_ms,
             rules_applied=rules_count(),
             dom_elements_scanned=page_data.dom_element_count,
             visible_text_characters=len(page_data.text_content),
         ),
     )
+
+
+@app.get(
+    "/api/history",
+    tags=["Histórico"],
+    summary="Listar resumos salvos deste navegador",
+)
+def get_history(request: Request, response: Response) -> dict:
+    """Resumos anônimos vinculados ao cookie de identidade (mais novos primeiro)."""
+    owner = _ensure_owner(request, response)
+    try:
+        items = db.list_history(owner)
+    except Exception:
+        items = []
+    return {"items": items, "limit": db.HISTORY_LIMIT}
+
+
+@app.delete(
+    "/api/history",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Histórico"],
+    summary="Apagar todo o histórico deste navegador",
+)
+def clear_history(request: Request, response: Response) -> None:
+    owner = _ensure_owner(request, response)
+    try:
+        db.delete_history(owner)
+    except Exception:
+        pass
+
+
+@app.delete(
+    "/api/history/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Histórico"],
+    summary="Remover um resumo do histórico",
+)
+def delete_history_item(item_id: str, request: Request, response: Response) -> None:
+    owner = _ensure_owner(request, response)
+    try:
+        removed = db.delete_history_item(owner, item_id)
+    except Exception:
+        removed = False
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "status": "error",
+                "code": "HISTORY_NOT_FOUND",
+                "message": "Item não encontrado no histórico.",
+                "detail": None,
+            },
+        )
 
 
 # ── Frontend estático (Sprint 10) ─────────────────────────────

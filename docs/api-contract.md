@@ -1,8 +1,8 @@
 # RASTRO — Contrato implementado da API
 
-> **Versão:** 0.4
+> **Versão:** 0.5
 > **Atualizado em:** 2026-10-19
-> **Estado:** descreve o comportamento implementado em `backend/main.py`, incluindo a chamada semântica opcional via provedor compatível com OpenAI.
+> **Estado:** descreve o comportamento implementado em `backend/main.py`, incluindo a chamada semântica opcional via provedor compatível com OpenAI e o histórico anônimo local (sem contas).
 
 ## Health check
 
@@ -112,10 +112,56 @@ Os erros lançados com `HTTPException` aparecem no corpo dentro de `detail`, com
 | `422` | Erro de validação do request | `detail` de validação padrão do FastAPI; a forma não é igual à dos erros do scanner. |
 | `422` | Destino rejeitado pela validação anti-SSRF | `detail` contém `status`, `code`, `message` e `detail`. |
 | `403` | Página devolveu `403` ou `429`, interpretada como bloqueio anti-bot | `detail` contém os campos do erro do scanner. |
+| `404` | Item de histórico inexistente ou de outra identidade | `detail` contém `code: "HISTORY_NOT_FOUND"`. |
 | `503` | Falha ou indisponibilidade do scraper | `detail` contém os campos do erro do scanner. |
 | `500` | Erro não tratado | Resposta padrão de erro do FastAPI/Uvicorn. |
 
 Não há rate limit implementado no endpoint: `429` não é um erro emitido pelo controle de taxa do RASTRO. Também não há tratamento customizado `415`.
+
+### Histórico anônimo (sem contas)
+
+O RASTRO identifica o navegador por um cookie opaco `rastro_hid` (32 caracteres hex, `HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age` de 1 ano), emitido na primeira resposta bem-sucedida da API quando ausente ou inválido. Não há cadastro, login nem dado pessoal: o cookie é apenas um identificador aleatório. Perder ou apagar o cookie torna o histórico anterior inacessível.
+
+Todo `/api/scan` bem-sucedido grava automaticamente um **resumo** vinculado a essa identidade: domínio final, domínio solicitado, data, score, risco, achados (tipo, evidência limitada a 240 caracteres, referência de DOM, severidade, motor) e metadados de execução. URL completa, HTML e texto integral da página **não são persistidos**. A retenção é de no máximo 100 resumos por identidade — os mais antigos são descartados. A gravação é best-effort: falha de banco não altera a resposta do scan.
+
+```http
+GET /api/history
+```
+
+Resposta `200 OK`:
+
+```json
+{
+  "items": [
+    {
+      "id": "9f1c...32hex",
+      "scannedAt": "2026-10-19T18:00:00+00:00",
+      "domain": "exemplo.com",
+      "requestedDomain": "exemplo.com",
+      "score": 20,
+      "riskLevel": "low",
+      "scanEngine": "deterministic",
+      "llmStatus": "disabled",
+      "llmUnavailableReason": null,
+      "durationMs": 1840,
+      "domElementsScanned": 347,
+      "visibleTextCharacters": 1280,
+      "rulesApplied": 7,
+      "findings": [
+        { "id": "fake_scarcity", "type": "Falsa escassez", "evidence": "Restam 2 unidades", "domReference": null, "severity": "high", "engine": "deterministic" }
+      ]
+    }
+  ],
+  "limit": 100
+}
+```
+
+```http
+DELETE /api/history/{item_id}
+DELETE /api/history
+```
+
+Removem um item ou todo o histórico **somente da identidade do cookie**; ambos retornam `204 No Content`. Item inexistente ou de outra identidade retorna `404` com `detail.code = "HISTORY_NOT_FOUND"`. O banco é um arquivo SQLite local (`RASTRO_DB_PATH`, volume `api-data` no Compose); não há sincronização entre instalações.
 
 ## CORS e configuração
 
@@ -124,6 +170,6 @@ Não há rate limit implementado no endpoint: `429` não é um erro emitido pelo
 ## Limitações do contrato atual
 
 - O provedor pode estar indisponível ou produzir uma interpretação incompleta; os findings semânticos são limitados a quatro e só entram na resposta se a evidência retornada aparecer literalmente no recorte enviado. Isso reduz citações inventadas, mas não valida a interpretação do modelo.
-- A API não tem autenticação, persistência, endpoint de histórico, endpoint de download de relatório nem rate limiting. A interface web mantém até 10 resumos no `localStorage` e gera downloads Markdown no próprio navegador; isso não cria cópia no servidor nem sincronização entre dispositivos.
+- A API não tem autenticação, endpoint de download de relatório nem rate limiting. O histórico anônimo é vinculado ao cookie `rastro_hid` e fica no SQLite da instalação; quem tiver acesso ao cookie vê os resumos dessa identidade. A interface web gera downloads Markdown no próprio navegador e não sincroniza entre dispositivos nem instalações.
 - Códigos e mensagens exatos de exceções de validação podem variar com a versão do FastAPI/Pydantic; consumidores devem usar o status HTTP e tratar os formatos documentados sem depender de texto específico.
 - A checagem anti-SSRF da aplicação é defesa em profundidade. O modo Docker com egress controlado está documentado separadamente e ainda exige validação operacional antes de exposição pública.

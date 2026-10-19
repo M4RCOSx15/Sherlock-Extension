@@ -993,7 +993,6 @@
               <div class="finding"><b>Indução à culpa</b>"Não, prefiro perder a oferta"</div>
             </div>
             <div class="result-actions">
-              <button class="reset-button" id="saveReportButton" type="button">SALVAR NO HISTÓRICO</button>
               <button class="reset-button" id="downloadCurrentButton" type="button">BAIXAR RELATÓRIO</button>
               <button class="reset-button" id="resetButton" type="button">↺ NOVA ANÁLISE</button>
               <span class="save-report-status" id="saveReportStatus" role="status" aria-live="polite"></span>
@@ -1010,7 +1009,7 @@
           <div class="history-row">
             <div class="history-heading">
               <span class="history-title">RELATÓRIOS HISTÓRICOS</span>
-              <span class="history-note">Salvos neste navegador: domínio analisado e, se houver redirecionamento, domínio de origem; data, score, risco e evidências curtas. Endereço completo e HTML bruto não são armazenados.</span>
+              <span class="history-note">Salvos automaticamente nesta instalação do RASTRO, vinculados a um identificador anônimo deste navegador: domínio analisado e, se houver redirecionamento, domínio de origem; data, score, risco e evidências curtas. Endereço completo e HTML bruto não são armazenados.</span>
             </div>
             <div class="history-actions">
               <button class="history-button" id="historyToggle" type="button" aria-expanded="false" aria-controls="historyPanel">VER HISTÓRICO (0)</button>
@@ -1121,7 +1120,6 @@ const resetButton    = document.getElementById("resetButton");
 const resetButtonErr = document.getElementById("resetButtonErr");
 const engineNote     = document.getElementById("engineNote");
 const resultExplain  = document.getElementById("resultExplain");
-const saveReportButton = document.getElementById("saveReportButton");
 const saveReportStatus = document.getElementById("saveReportStatus");
 const downloadCurrentButton = document.getElementById("downloadCurrentButton");
 const historyToggle = document.getElementById("historyToggle");
@@ -1129,8 +1127,8 @@ const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 const historyStatus = document.getElementById("historyStatus");
 const clearHistoryButton = document.getElementById("clearHistoryButton");
-const HISTORY_STORAGE_KEY = "rastro.report-history.v1";
-const MAX_HISTORY_ITEMS = 10;
+let currentHistory = [];
+const MAX_HISTORY_ITEMS = 100;
 const HISTORY_RISK_LABELS = { low: "baixo", medium: "moderado", high: "elevado", critical: "crítico" };
 const FINDING_SEVERITY_LABELS = { low: "baixa", medium: "média", high: "alta", critical: "crítica" };
 const FINDING_SOURCE_LABELS = { deterministic: "regra determinística", llm: "análise semântica (IA)", stub: "dados demonstrativos" };
@@ -1331,31 +1329,23 @@ function formatExecutionSummary(report) {
   return `Execução: ${method} · etapa semântica ${formatLLMStatus(report)} · ${formatExecutionDuration(report.durationMs)} · ${elements} · ${textCharacters} · ${rules}`;
 }
 
-function readReportHistory() {
+async function fetchReportHistory() {
   try {
-    const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalizeStoredReport).filter(Boolean).slice(0, MAX_HISTORY_ITEMS);
+    const response = await fetch("/api/history", { credentials: "same-origin" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data || !Array.isArray(data.items)) return null;
+    return data.items.map(normalizeStoredReport).filter(Boolean).slice(0, MAX_HISTORY_ITEMS);
   } catch (_) {
     return null;
   }
 }
 
-function saveReportHistory(items) {
-  try {
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(items.slice(0, MAX_HISTORY_ITEMS)));
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function renderReportHistory() {
-  const history = readReportHistory();
+async function renderReportHistory() {
+  const history = await fetchReportHistory();
   const canUseStorage = history !== null;
   const items = history || [];
+  currentHistory = items;
   historyStatus.textContent = "";
   historyToggle.textContent = canUseStorage
     ? `VER HISTÓRICO (${items.length})`
@@ -1367,7 +1357,7 @@ function renderReportHistory() {
   if (!canUseStorage) {
     const unavailable = document.createElement("p");
     unavailable.className = "history-empty";
-    unavailable.textContent = "O armazenamento local do navegador está indisponível nesta sessão.";
+    unavailable.textContent = "O histórico desta instalação está indisponível nesta sessão.";
     historyList.append(unavailable);
     return;
   }
@@ -1375,7 +1365,7 @@ function renderReportHistory() {
   if (items.length === 0) {
     const empty = document.createElement("p");
     empty.className = "history-empty";
-    empty.textContent = "Nenhum relatório salvo. Depois de uma análise, use “SALVAR NO HISTÓRICO”.";
+    empty.textContent = "Nenhum relatório salvo. As análises concluídas aparecem aqui automaticamente.";
     historyList.append(empty);
     return;
   }
@@ -1623,8 +1613,6 @@ function resetUI() {
   redirectNote.hidden = true;
   redirectNote.textContent = "";
   pendingReport = null;
-  saveReportButton.disabled = false;
-  saveReportButton.textContent = "SALVAR NO HISTÓRICO";
   saveReportStatus.textContent = "";
   engineNote.textContent = "A etapa semântica é opcional; as regras determinísticas continuam disponíveis.";
   error.textContent = "";
@@ -1736,9 +1724,8 @@ function showSuccess(parsed, apiData) {
 
   resultCard.hidden = false;
   pendingReport = createReportSnapshot(parsed, apiData);
-  saveReportButton.disabled = false;
-  saveReportButton.textContent = "SALVAR NO HISTÓRICO";
-  saveReportStatus.textContent = "";
+  saveReportStatus.textContent = "Resumo salvo automaticamente no histórico desta instalação.";
+  renderReportHistory();
 }
 
 /* --- Renderiza erro da API --- */
@@ -1766,24 +1753,6 @@ downloadCurrentButton.addEventListener("click", function () {
     : "Não foi possível gerar o arquivo Markdown.";
 });
 
-saveReportButton.addEventListener("click", function () {
-  if (!pendingReport) return;
-  const current = readReportHistory();
-  if (current === null) {
-    saveReportStatus.textContent = "Armazenamento local indisponível; relatório não salvo.";
-    return;
-  }
-  const updated = [pendingReport, ...current.filter(function (item) { return item.id !== pendingReport.id; })];
-  if (!saveReportHistory(updated)) {
-    saveReportStatus.textContent = "Não foi possível salvar neste navegador.";
-    return;
-  }
-  saveReportButton.disabled = true;
-  saveReportButton.textContent = "SALVO NO HISTÓRICO";
-  saveReportStatus.textContent = "Resumo salvo somente neste navegador.";
-  renderReportHistory();
-});
-
 historyToggle.addEventListener("click", function () {
   const willOpen = historyPanel.hidden;
   historyPanel.hidden = !willOpen;
@@ -1794,8 +1763,7 @@ historyToggle.addEventListener("click", function () {
 historyList.addEventListener("click", function (event) {
   const downloadButton = event.target.closest("[data-download-id]");
   if (downloadButton) {
-    const history = readReportHistory();
-    const report = history && history.find(function (item) { return item.id === downloadButton.dataset.downloadId; });
+    const report = currentHistory.find(function (item) { return item.id === downloadButton.dataset.downloadId; });
     historyStatus.textContent = report && downloadReport(report)
       ? `Download iniciado para ${report.domain}.`
       : "Não foi possível gerar o arquivo Markdown.";
@@ -1804,31 +1772,30 @@ historyList.addEventListener("click", function (event) {
 
   const removeButton = event.target.closest("[data-history-id]");
   if (!removeButton) return;
-  const current = readReportHistory();
-  if (current === null) return;
-  const updated = current.filter(function (item) { return item.id !== removeButton.dataset.historyId; });
-  if (saveReportHistory(updated)) {
-    if (pendingReport?.id === removeButton.dataset.historyId) {
-      saveReportButton.disabled = false;
-      saveReportButton.textContent = "SALVAR NO HISTÓRICO";
-      saveReportStatus.textContent = "Relatório removido do histórico.";
-    }
+  fetch(`/api/history/${encodeURIComponent(removeButton.dataset.historyId)}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+  }).then(function (response) {
+    historyStatus.textContent = response.status === 204
+      ? "Relatório removido do histórico."
+      : "Não foi possível remover o relatório.";
     renderReportHistory();
-  }
+  }).catch(function () {
+    historyStatus.textContent = "Não foi possível remover o relatório.";
+  });
 });
 
 clearHistoryButton.addEventListener("click", function () {
-  const current = readReportHistory();
-  if (!current || current.length === 0) return;
-  if (!window.confirm("Apagar todos os relatórios salvos neste navegador?")) return;
-  if (saveReportHistory([])) {
-    if (pendingReport && current.some(function (item) { return item.id === pendingReport.id; })) {
-      saveReportButton.disabled = false;
-      saveReportButton.textContent = "SALVAR NO HISTÓRICO";
-      saveReportStatus.textContent = "Histórico apagado.";
-    }
+  if (currentHistory.length === 0) return;
+  if (!window.confirm("Apagar todos os relatórios salvos nesta instalação?")) return;
+  fetch("/api/history", { method: "DELETE", credentials: "same-origin" }).then(function (response) {
+    historyStatus.textContent = response.status === 204
+      ? "Histórico apagado."
+      : "Não foi possível apagar o histórico.";
     renderReportHistory();
-  }
+  }).catch(function () {
+    historyStatus.textContent = "Não foi possível apagar o histórico.";
+  });
 });
 
 renderReportHistory();

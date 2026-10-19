@@ -1,8 +1,8 @@
-# Persistência remota — proposta de escopo (Fase 2)
+# Persistência — escopo e decisão (Fase 2)
 
-> **Status:** PROPOSTA — aguarda aprovação do usuário antes de qualquer implementação.
-> **Data:** 2026-10-19
-> **Tipo:** microsprint de escopo, conforme exigido pelo backlog ("persistência exige escopo e validações próprias").
+> **Status:** IMPLEMENTADA em 2026-10-19 — **modelo A (anônimo)**, decidido pelo usuário.
+> **Enquadramento do produto:** o usuário definiu o RASTRO como site de verificação pontual no estilo VirusTotal — "verificar e só", sem contas nem fricção. O modelo B (contas/e-mail) foi descartado.
+> **Implementação:** cookie opaco `rastro_hid`, SQLite local (`backend/db.py`, volume `api-data` no Compose), `GET/DELETE /api/history`, gravação automática a cada scan. Contrato v0.5 em `docs/api-contract.md`.
 
 ## 1. Problema
 
@@ -45,14 +45,15 @@ Este documento assume que vale ter **contas de usuário** — mas a necessidade 
 6. Limite de retenção: manter no máximo 100 resumos por usuário, descartando os mais antigos.
 7. Toda alteração de rota/payload/erro atualiza `docs/api-contract.md` e testes na mesma entrega.
 
-## 6. Alternativas em aberto (decisão necessária)
+## 6. Alternativas — DECIDIDO: modelo A
 
-| | A — Histórico anônimo | B — Contas (recomendada) |
+| | A — Histórico anônimo ✅ | B — Contas ❌ descartado |
 |---|---|---|
 | Modelo | Cookie de identidade gerado pelo servidor, sem login | E-mail + senha + sessão |
 | Privacidade | Máxima — nada identifica a pessoa | Identidade explícita, mais dados |
-| Habilita SaaS | Não | Sim (multiusuário, billing futuro) |
-| Esforço | Menor | Maior |
+| Produto | Site de verificação pontual (estilo VirusTotal) | SaaS multiusuário — não é a visão |
+
+O usuário explicitou que não enxerga o RASTRO como SaaS: quanto mais simples e direto, melhor. Contas, billing e multiusuário ficam fora da visão de produto atual.
 
 ## 7. Dependências, restrições e suposições
 

@@ -82,3 +82,7 @@ Thumbs.db
 logs/
 tmp/
 temp/
+
+# Banco SQLite local do histórico (dev sem Docker)
+data/
+*.db

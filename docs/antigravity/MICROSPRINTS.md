@@ -279,6 +279,18 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 
 ---
 
+## Fase 2 — Persistência anônima
+
+### [x] Microsprint 15.1 — Histórico anônimo no servidor (modelo A)
+- **Decisão de produto**: o usuário definiu o RASTRO como site de verificação pontual estilo VirusTotal — sem contas, sem login, sem fricção. O modelo B (contas) da proposta `docs/antigravity/PERSISTENCIA.md` foi descartado.
+- **Escopo**: cookie opaco `rastro_hid` (HttpOnly, SameSite=Lax, 1 ano) emitido pela API; todo scan bem-sucedido grava automaticamente o resumo (domínio, score, risco, achados curtos, metadados) no SQLite local (`RASTRO_DB_PATH`, volume `api-data` no Compose); `GET /api/history`, `DELETE /api/history/{id}` e `DELETE /api/history` escopados à identidade; retenção de 100 itens; gravação best-effort não derruba o scan; frontend passa a listar o histórico do servidor e o botão “SALVAR NO HISTÓRICO” foi removido (auto-save).
+- **Privacidade e segurança**: nenhum dado pessoal — o cookie é um identificador aleatório; URL completa, HTML e texto integral continuam fora do banco; evidências limitadas a 240 caracteres; anônimo não exige nenhuma ação.
+- **Fora do escopo**: sincronização entre instalações/dispositivos, expiração por tempo, exportação do histórico inteiro, migração do `localStorage` antigo (fica órfão no navegador).
+- **Critérios para concluir**: scan grava resumo acessível via `GET /api/history`; outra identidade não vê nem remove itens alheios (404); retenção mantém 100; scan sobrevive a falha de banco; contrato v0.5 documenta os endpoints.
+- **Validação**: `backend/test_history.py` (18/18) passou no Python local; sintaxe do frontend conferida com `node --check`; regressões `test_rendered_evidence.py` e demais suítes seguem verdes. Validação no container após rebuild com volume `api-data`. A conferência visual do histórico na interface fica para o usuário.
+
+---
+
 ## Fases Futuras (Fora do primeiro checkpoint)
 - **Deploy**: Depois do gate de segurança da Sprint 12, configurar deploy na Oracle Cloud (VPS).
 - **Persistência remota**: banco para contas e sincronização de relatórios, em microsprint futura separada; histórico e exportação da 14.x são locais e não substituem esse trabalho. **Proposta de escopo em `docs/antigravity/PERSISTENCIA.md` — aguarda aprovação do usuário; proposta não autoriza implementação.**

@@ -3,7 +3,7 @@
 *Este arquivo deve ser atualizado pelo agente Antigravity no final de cada sprint para manter o contexto vivo caso a sessão caia ou o limite de tokens seja alcançado.*
 
 - **Data da Última Atualização**: 2026-10-19
-- **Sprint Atual/Concluída**: **Microsprints 14.1–14.24 concluídas e validadas; checkpoint commitado na branch `develop`**.
+- **Sprint Atual/Concluída**: **Microsprints 14.1–14.24 + 15.1 (histórico anônimo, modelo A) concluídas e validadas; checkpoint commitado na branch `develop`**.
 - **Fase**: MVP local com análise determinística e etapa semântica Gemini opcional. A análise OLX.com.br mostrou 3.152 elementos, 12.097 caracteres visíveis e um finding de comparação de preços distintos; o Gemini atingiu limite de uso e o fallback determinístico concluiu. A imagem Docker foi reconstruída em 2026-10-16 e `backend/test_rendered_evidence.py` validou os casos das microsprints 14.16–14.23 dentro do container; as 7 regras determinísticas agora consomem somente sinais renderizados pelo navegador e ignoram texto oculto ou estacionado fora da tela.
 
 ## O Que Foi Entregue (MVP Completo)
@@ -43,7 +43,7 @@ curl.exe -sS http://127.0.0.1:8000/api/health
 ## Próximos Passos (Backlog - Fases Futuras)
 - **Próximo planejamento**: escolher a próxima melhoria de produto entre qualidade/rastreabilidade dos achados, persistência remota e preparação de deploy. Persistência e deploy exigem escopo e validações próprias.
 - **Limite do sinal de consentimento**: assimetria observável é um indício, não prova de intenção manipulativa nem avaliação jurídica. O score segue heurístico.
-- **Persistência remota**: criar banco para contas, sincronização e exportação em microsprint separada. Proposta de escopo redigida em 2026-10-19 (`docs/antigravity/PERSISTENCIA.md`) — aguarda aprovação do usuário e a decisão entre histórico anônimo e contas antes de implementar.
+- **Persistência**: implementada em 2026-10-19 no **modelo A (anônimo, estilo VirusTotal)** — cookie `rastro_hid`, SQLite em `RASTRO_DB_PATH` (volume `api-data`), `GET/DELETE /api/history`, auto-save por scan, retenção de 100. O usuário descartou contas/SaaS; decisão registrada em `docs/antigravity/PERSISTENCIA.md`.
 - **Deploy em Nuvem**: Mover para um ambiente de produção (VPS Linux, Docker, orquestração).
 
 ## Restrições ou Problemas Conhecidos Atuais
@@ -72,6 +72,7 @@ curl.exe -sS http://127.0.0.1:8000/api/health
 - **14.22**: concluída e validada em 2026-10-16; as coletas de texto e de contexto de preço descartam elementos cujo retângulo termina em espaço negativo (fora da tela). Conteúdo abaixo da dobra e parcialmente visível segue elegível. `test_rendered_evidence.py` confirmou quatro casos fora da tela sem achado e o caso parcialmente visível, no Python local e dentro do container.
 - **14.23**: concluída e validada em 2026-10-16; a urgência textual avalia `rendered_text_candidates` no fluxo do navegador em vez do `innerText` integral, mantendo o timer visível como sinal alto e o fallback estático fora do navegador. `test_rendered_evidence.py` confirmou urgência fora da tela/oculta sem achado e urgência renderizada como média, no Python local e dentro do container.
 - **14.24**: concluída e validada em 2026-10-19; `docs/api-contract.md` (v0.4) passou a descrever confirmshaming, urgência textual e ancoragem sobre evidência renderizada, incluindo a exclusão de texto estacionado fora da tela; o comentário do schema `Finding.engine` deixou de listar o valor `stub` inexistente. `test_rendered_evidence.py` (24/24) e `test_ssrf.py` (30/30) passaram no Python local; sem mudança funcional.
+- **15.1**: concluída em 2026-10-19; histórico anônimo por cookie `rastro_hid` + SQLite (modelo A, sem contas — decisão VirusTotal do usuário). Auto-save no scan, `GET/DELETE /api/history`, retenção 100, volume `api-data` no Compose; frontend lista o histórico do servidor e perdeu o botão de salvar. `test_history.py` (18/18) e sintaxe JS (`node --check`) passaram localmente; contrato v0.5.
 - **Pontuação heurística**: o score soma pesos de regras e não é uma probabilidade calibrada de manipulação nem prova de intenção.
 - O código original legado da extensão Chrome (arquivos na raiz como manifest e popups) não tem mais serventia, o foco mudou 100% para a plataforma Web SaaS.
 - A máquina Windows local exige a flag `loop="none"` e uso da `WindowsProactorEventLoopPolicy` para que a integração Uvicorn + Playwright funcione adequadamente, garantido pelo `run_server.py`.
