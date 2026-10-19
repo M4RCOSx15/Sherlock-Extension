@@ -287,7 +287,7 @@ O projeto será desenvolvido etapa por etapa (microsprints). O agente não pode 
 - **Privacidade e segurança**: nenhum dado pessoal — o cookie é um identificador aleatório; URL completa, HTML e texto integral continuam fora do banco; evidências limitadas a 240 caracteres; anônimo não exige nenhuma ação.
 - **Fora do escopo**: sincronização entre instalações/dispositivos, expiração por tempo, exportação do histórico inteiro, migração do `localStorage` antigo (fica órfão no navegador).
 - **Critérios para concluir**: scan grava resumo acessível via `GET /api/history`; outra identidade não vê nem remove itens alheios (404); retenção mantém 100; scan sobrevive a falha de banco; contrato v0.5 documenta os endpoints.
-- **Validação**: `backend/test_history.py` (18/18) passou no Python local; sintaxe do frontend conferida com `node --check`; regressões `test_rendered_evidence.py` e demais suítes seguem verdes. Validação no container após rebuild com volume `api-data`. A conferência visual do histórico na interface fica para o usuário.
+- **Validação**: `backend/test_history.py` (18/18) passou no Python local e dentro do container `rastro-api-1` reconstruído; sintaxe do frontend conferida com `node --check`; regressões `test_rendered_evidence.py` e demais suítes seguem verdes. Em 2026-10-19, a persistência foi confirmada ponta a ponta no Compose: item inserido no volume `api-data` permaneceu acessível por `GET /api/history` após `docker compose restart api`, e `DELETE /api/history` o removeu (204). Observação: `docker compose exec` roda como root e, por `cap_drop: ALL`, não escreve em `/data` — probes devem usar `--user pwuser`. A conferência visual do histórico na interface fica para o usuário.
 
 ---
 

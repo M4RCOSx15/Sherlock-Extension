@@ -173,7 +173,7 @@ Decisão do usuário: o RASTRO é um site de verificação pontual estilo VirusT
 
 Implementado: cookie opaco `rastro_hid` (HttpOnly, SameSite=Lax, 1 ano); `backend/db.py` com SQLite em `RASTRO_DB_PATH`; auto-save do resumo a cada `/api/scan`; `GET /api/history`, `DELETE /api/history/{id}` e `DELETE /api/history` escopados à identidade; retenção de 100 itens; gravação best-effort. URL completa, HTML e texto integral continuam fora do banco. No Compose, volume `api-data` montado em `/data` (criado no Dockerfile com dono `pwuser`). O frontend lista o histórico do servidor e perdeu o botão "SALVAR NO HISTÓRICO" (auto-save); o `localStorage` antigo fica órfão e não é migrado. Contrato v0.5.
 
-`backend/test_history.py` (18/18) passou no Python local; sintaxe do frontend conferida com `node --check`; suites anteriores seguem verdes. A conferência visual do histórico na interface fica para o usuário.
+`backend/test_history.py` (18/18) passou no Python local e dentro do container `rastro-api-1` reconstruído; sintaxe do frontend conferida com `node --check`; suites anteriores seguem verdes. Persistência confirmada ponta a ponta: item inserido no volume `api-data` continuou listado após `docker compose restart api` e foi removido por `DELETE /api/history` (204). Nota operacional: `docker compose exec` roda como root e, por `cap_drop: ALL`, não escreve em `/data` — usar `--user pwuser` para probes. A conferência visual do histórico na interface fica para o usuário.
 
 ## Microsprint 13.2 concluída — assimetria em consentimento
 
